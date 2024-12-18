@@ -4,52 +4,69 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    Image,
     StyleSheet,
+    Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
 const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    // Email Validation Function
+    const validateEmail = (text) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email validation regex
+        if (!emailRegex.test(text)) {
+            setError('Invalid email format');
+        } else {
+            setError('');
+        }
+        setEmail(text);
+    };
 
     const handleLogin = () => {
-        console.log('Email:', email, 'Password:', password);
+        if (!email || error) {
+            alert('Please enter a valid email address.');
+            return;
+        }
+        console.log('Logging in with Email:', email, 'Password:', password);
+        // Navigate to Home screen after successful login
+        navigation.replace('Home'); // Replace 'Home' with your next screen
     };
 
     return (
         <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
-            {/* Gym-Themed Image */}
+            {/* Illustration */}
             <Image
-                source={require('../../../assets/images/gym_icon2.png')}
+                source={require('../../../assets/images/gym_icon.png')}
                 style={styles.logo}
             />
 
-            {/* Welcome Text */}
-            <Text style={styles.title}>Hey there,</Text>
-            <Text style={styles.subtitle}>Welcome Back</Text>
+            {/* Title */}
+            <Text style={styles.title}>Welcome Back!</Text>
+            <Text style={styles.subtitle}>Please login to your account</Text>
 
-            {/* Input Fields */}
+            {/* Email Input */}
             <TextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder="Enter Your Email"
                 placeholderTextColor="#B8B8B8"
+                keyboardType="email-address"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={validateEmail}
             />
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            {/* Password Input */}
             <TextInput
                 style={styles.input}
-                placeholder="Password"
+                placeholder="Enter Your Password"
                 placeholderTextColor="#B8B8B8"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
             />
-
-            {/* Forgot Password */}
-            <TouchableOpacity>
-                <Text style={styles.forgotPassword}>Forgot your password?</Text>
-            </TouchableOpacity>
 
             {/* Login Button */}
             <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
@@ -61,9 +78,9 @@ const LoginScreen = ({ navigation }) => {
                 </LinearGradient>
             </TouchableOpacity>
 
-            {/* Register Navigation */}
+            {/* Register Link */}
             <Text style={styles.registerText}>
-                Don't have an account yet?{' '}
+                Don't have an account?{' '}
                 <Text
                     style={{ fontWeight: 'bold', color: '#A95CF1' }}
                     onPress={() => navigation.navigate('Register')}
@@ -91,25 +108,28 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 28,
         fontWeight: 'bold',
+        textAlign: 'center',
     },
     subtitle: {
         color: '#fff',
-        fontSize: 22,
-        marginBottom: 30,
+        fontSize: 18,
+        marginBottom: 20,
+        textAlign: 'center',
     },
     input: {
         width: '100%',
         height: 50,
         backgroundColor: '#fff',
         borderRadius: 25,
-        paddingLeft: 20,
+        paddingHorizontal: 20,
         marginBottom: 15,
         fontSize: 16,
     },
-    forgotPassword: {
-        color: '#fff',
-        alignSelf: 'flex-end',
-        marginBottom: 20,
+    errorText: {
+        color: 'red',
+        fontSize: 12,
+        marginBottom: 10,
+        alignSelf: 'flex-start',
     },
     loginButton: {
         width: '100%',
