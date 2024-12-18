@@ -4,8 +4,8 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    Image,
     StyleSheet,
+    Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -17,7 +17,7 @@ const RegisterScreen = ({ navigation }) => {
 
     // Email Validation Function
     const validateEmail = (text) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email validation regex
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(text)) {
             setError('Invalid email format');
         } else {
@@ -31,13 +31,16 @@ const RegisterScreen = ({ navigation }) => {
             alert('Please enter a valid email address.');
             return;
         }
+        if (!password) {
+            alert('Password cannot be empty!');
+            return;
+        }
         if (password !== confirmPassword) {
             alert('Passwords do not match!');
             return;
         }
         console.log('Registering Email:', email, 'Password:', password);
-        // Navigate to CreateProfile screen
-        navigation.replace('CreateProfile');
+        navigation.replace('CreateProfile'); // Navigate to the next screen
     };
 
     return (
@@ -123,11 +126,13 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 28,
         fontWeight: 'bold',
+        textAlign: 'center',
     },
     subtitle: {
         color: '#fff',
-        fontSize: 20,
+        fontSize: 18,
         marginBottom: 20,
+        textAlign: 'center',
     },
     input: {
         width: '100%',
@@ -164,7 +169,6 @@ const styles = StyleSheet.create({
     loginText: {
         color: '#fff',
         fontSize: 14,
-        marginTop: 10,
     },
 });
 

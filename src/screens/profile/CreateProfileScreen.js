@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Dropdown } from 'react-native-element-dropdown';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const CreateProfileScreen = ({ navigation }) => {
@@ -33,12 +32,6 @@ const CreateProfileScreen = ({ navigation }) => {
 
     return (
         <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
-            {/* Go Back Button */}
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                <Ionicons name="arrow-back" size={24} color="#fff" />
-                <Text style={styles.backText}>Go Back</Text>
-            </TouchableOpacity>
-
             {/* Illustration */}
             <Image
                 source={require('../../../assets/images/gym_icon.png')}
@@ -73,7 +66,7 @@ const CreateProfileScreen = ({ navigation }) => {
                 <DateTimePicker value={new Date()} mode="date" display="default" onChange={onChangeDate} />
             )}
 
-            {/* Weight and Height */}
+            {/* Weight Input */}
             <View style={styles.inlineInputContainer}>
                 <TextInput
                     style={styles.inlineInput}
@@ -85,6 +78,8 @@ const CreateProfileScreen = ({ navigation }) => {
                 />
                 <Text style={styles.unit}>KG</Text>
             </View>
+
+            {/* Height Input */}
             <View style={styles.inlineInputContainer}>
                 <TextInput
                     style={styles.inlineInput}
@@ -97,8 +92,15 @@ const CreateProfileScreen = ({ navigation }) => {
                 <Text style={styles.unit}>CM</Text>
             </View>
 
+            {/* Go Back Button */}
+            <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
+                <LinearGradient colors={['#8E44AD', '#A95CF1']} style={styles.buttonGradient}>
+                    <Text style={styles.buttonText}>Go Back</Text>
+                </LinearGradient>
+            </TouchableOpacity>
+
             {/* Next Button */}
-            <TouchableOpacity onPress={() => console.log('Next Pressed')} style={styles.button}>
+            <TouchableOpacity style={styles.button} onPress={() => console.log('Next Pressed')}>
                 <LinearGradient colors={['#8E44AD', '#A95CF1']} style={styles.buttonGradient}>
                     <Text style={styles.buttonText}>Next</Text>
                 </LinearGradient>
@@ -108,9 +110,7 @@ const CreateProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, paddingHorizontal: 20 },
-    backButton: { flexDirection: 'row', alignItems: 'center', marginTop: 50, marginBottom: 10 },
-    backText: { color: '#fff', fontSize: 16, marginLeft: 5 },
+    container: { flex: 1, paddingHorizontal: 20, justifyContent: 'center' },
     illustration: { width: 150, height: 150, alignSelf: 'center', marginBottom: 20 },
     title: { fontSize: 24, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
     subtitle: { fontSize: 14, color: '#fff', textAlign: 'center', marginBottom: 20 },
@@ -120,8 +120,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 25,
         paddingHorizontal: 20,
-        justifyContent: 'center',
         marginBottom: 15,
+        justifyContent: 'center',
     },
     placeholderStyle: { color: '#B8B8B8', fontSize: 16 },
     dateText: { fontSize: 16, color: '#333' },
@@ -136,7 +136,12 @@ const styles = StyleSheet.create({
     },
     inlineInput: { flex: 1, fontSize: 16 },
     unit: { fontSize: 16, color: '#A95CF1', fontWeight: 'bold' },
-    button: { marginTop: 10, width: '100%', height: 50, borderRadius: 25 },
+    button: {
+        width: '100%',
+        height: 50,
+        borderRadius: 25,
+        marginVertical: 10, // Adds spacing between buttons
+    },
     buttonGradient: {
         flex: 1,
         justifyContent: 'center',
