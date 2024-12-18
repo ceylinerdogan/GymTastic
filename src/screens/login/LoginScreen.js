@@ -14,9 +14,8 @@ const LoginScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    // Email Validation Function
     const validateEmail = (text) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email validation regex
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(text)) {
             setError('Invalid email format');
         } else {
@@ -30,24 +29,19 @@ const LoginScreen = ({ navigation }) => {
             alert('Please enter a valid email address.');
             return;
         }
-        console.log('Logging in with Email:', email, 'Password:', password);
-        // Navigate to Home screen after successful login
-        navigation.replace('Home'); // Replace 'Home' with your next screen
+        if (!password) {
+            alert('Password cannot be empty!');
+            return;
+        }
+        console.log('Logging in with:', email, password);
+        navigation.replace('Main'); // Navigate to Main Screen
     };
 
     return (
         <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
-            {/* Illustration */}
-            <Image
-                source={require('../../../assets/images/gym_icon.png')}
-                style={styles.logo}
-            />
+            <Image source={require('../../../assets/images/gym_icon.png')} style={styles.logo} />
 
-            {/* Title */}
             <Text style={styles.title}>Welcome Back!</Text>
-            <Text style={styles.subtitle}>Please login to your account</Text>
-
-            {/* Email Input */}
             <TextInput
                 style={styles.input}
                 placeholder="Enter Your Email"
@@ -58,33 +52,24 @@ const LoginScreen = ({ navigation }) => {
             />
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            {/* Password Input */}
             <TextInput
                 style={styles.input}
-                placeholder="Enter Your Password"
+                placeholder="Password"
                 placeholderTextColor="#B8B8B8"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
             />
 
-            {/* Login Button */}
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                <LinearGradient
-                    colors={['#8E44AD', '#A95CF1']}
-                    style={styles.buttonGradient}
-                >
+            <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                <LinearGradient colors={['#8E44AD', '#A95CF1']} style={styles.buttonGradient}>
                     <Text style={styles.buttonText}>Login</Text>
                 </LinearGradient>
             </TouchableOpacity>
 
-            {/* Register Link */}
             <Text style={styles.registerText}>
                 Don't have an account?{' '}
-                <Text
-                    style={{ fontWeight: 'bold', color: '#A95CF1' }}
-                    onPress={() => navigation.navigate('Register')}
-                >
+                <Text style={{ fontWeight: 'bold', color: '#A95CF1' }} onPress={() => navigation.navigate('Register')}>
                     Register
                 </Text>
             </Text>
@@ -93,65 +78,15 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    logo: {
-        width: 150,
-        height: 150,
-        marginBottom: 30,
-    },
-    title: {
-        color: '#fff',
-        fontSize: 28,
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
-    subtitle: {
-        color: '#fff',
-        fontSize: 18,
-        marginBottom: 20,
-        textAlign: 'center',
-    },
-    input: {
-        width: '100%',
-        height: 50,
-        backgroundColor: '#fff',
-        borderRadius: 25,
-        paddingHorizontal: 20,
-        marginBottom: 15,
-        fontSize: 16,
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 12,
-        marginBottom: 10,
-        alignSelf: 'flex-start',
-    },
-    loginButton: {
-        width: '100%',
-        height: 50,
-        borderRadius: 25,
-        marginBottom: 20,
-    },
-    buttonGradient: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 25,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    registerText: {
-        color: '#fff',
-        fontSize: 14,
-    },
+    container: { flex: 1, padding: 20, justifyContent: 'center' },
+    logo: { width: 120, height: 120, alignSelf: 'center', marginBottom: 20 },
+    title: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
+    input: { backgroundColor: '#fff', borderRadius: 25, marginBottom: 15, paddingHorizontal: 20, height: 50 },
+    button: { height: 50, borderRadius: 25, marginBottom: 10 },
+    buttonGradient: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 25 },
+    buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+    errorText: { color: 'red', fontSize: 12, marginBottom: 10 },
+    registerText: { color: '#fff', textAlign: 'center', fontSize: 14 },
 });
 
 export default LoginScreen;
