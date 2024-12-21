@@ -15,10 +15,10 @@ const SplashScreen = ({navigation}) => {
   return (
     <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
       <Image
-        source={require('../../../assets/images/gym_icon.png')} // Add your app logo here
+        source={require('../../../assets/images/gym.jpg')} // Add your app logo here
         style={styles.logo}
       />
-      <Text style={styles.appName}>GymTastic</Text>
+      <Text style={styles.appName}>GYM-Tastic</Text>
       <Text style={styles.tagline}>Everybody Can Train</Text>
     </LinearGradient>
   );
