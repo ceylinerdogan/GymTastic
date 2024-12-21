@@ -1,30 +1,47 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
 const RegisterScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
+    const [emailError, setEmailError] = useState('');
+    const [passwordError, setPasswordError] = useState('');
 
     const validateEmail = (text) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(text)) {
-            setError('Invalid email format');
+            setEmailError('Invalid email format');
         } else {
-            setError('');
+            setEmailError('');
         }
         setEmail(text);
     };
 
+    const validatePassword = (password) => {
+        const passwordRegex = /^(?=.*[A-Z]).{6,}$/;
+        if (!passwordRegex.test(password)) {
+            setPasswordError(
+                'Password must be at least 6 characters long and include at least one uppercase letter.'
+            );
+        } else {
+            setPasswordError('');
+        }
+        setPassword(password);
+    };
+
     const handleRegister = () => {
-        if (!email || error) {
+        if (!email || emailError) {
             alert('Please enter a valid email address.');
             return;
         }
         if (!password) {
             alert('Password cannot be empty!');
+            return;
+        }
+        if (passwordError) {
+            alert(passwordError);
             return;
         }
         if (password !== confirmPassword) {
@@ -38,14 +55,36 @@ const RegisterScreen = ({ navigation }) => {
     return (
         <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
             <Text style={styles.title}>Register</Text>
-            <TextInput style={styles.input} placeholder="Enter Email" onChangeText={validateEmail} value={email} />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            <TextInput
+                style={styles.input}
+                placeholder="Enter Email"
+                onChangeText={validateEmail}
+                value={email}
+            />
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
-            <TextInput style={styles.input} placeholder="Password" secureTextEntry onChangeText={setPassword} />
-            <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry onChangeText={setConfirmPassword} />
+            <TextInput
+                style={styles.input}
+                placeholder="Password"
+                secureTextEntry
+                onChangeText={validatePassword}
+                value={password}
+            />
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+
+            <TextInput
+                style={styles.input}
+                placeholder="Confirm Password"
+                secureTextEntry
+                onChangeText={setConfirmPassword}
+                value={confirmPassword}
+            />
 
             <TouchableOpacity style={styles.button} onPress={handleRegister}>
-                <LinearGradient colors={['#8E44AD', '#A95CF1']} style={styles.buttonGradient}>
+                <LinearGradient
+                    colors={['#8E44AD', '#A95CF1']}
+                    style={styles.buttonGradient}
+                >
                     <Text style={styles.buttonText}>Next</Text>
                 </LinearGradient>
             </TouchableOpacity>
