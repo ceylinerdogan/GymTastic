@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,27 +7,64 @@ import {
   StyleSheet,
   Image,
   Platform,
+  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import {Dropdown} from 'react-native-element-dropdown';
+import { Dropdown } from 'react-native-element-dropdown';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-const CreateProfileScreen = ({navigation}) => {
+const CreateProfileScreen = ({ navigation }) => {
   const [gender, setGender] = useState(null);
   const [dob, setDob] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
+  const [error, setError] = useState('');
 
   const genderOptions = [
-    {label: 'Male', value: 'Male'},
-    {label: 'Female', value: 'Female'},
-    {label: 'Other', value: 'Other'},
+    { label: 'Male', value: 'Male' },
+    { label: 'Female', value: 'Female' },
+    { label: 'Other', value: 'Other' },
   ];
 
   const onChangeDate = (event, selectedDate) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (selectedDate) setDob(selectedDate.toLocaleDateString());
+  };
+
+  const validateFields = () => {
+    if (!gender) {
+      setError('Please select your gender.');
+      return false;
+    }
+    if (!dob) {
+      setError('Please select your date of birth.');
+      return false;
+    }
+    if (!weight) {
+      setError('Please enter your weight.');
+      return false;
+    }
+    if (isNaN(weight)) {
+      setError('Weight must be a valid number.');
+      return false;
+    }
+    if (!height) {
+      setError('Please enter your height.');
+      return false;
+    }
+    if (isNaN(height)) {
+      setError('Height must be a valid number.');
+      return false;
+    }
+    setError('');
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateFields()) {
+      navigation.replace('Main');
+    }
   };
 
   return (
@@ -55,13 +92,14 @@ const CreateProfileScreen = ({navigation}) => {
         valueField="value"
         placeholder="Choose Gender"
         value={gender}
-        onChange={item => setGender(item.value)}
+        onChange={(item) => setGender(item.value)}
       />
 
       {/* Date Picker */}
       <TouchableOpacity
         onPress={() => setShowDatePicker(true)}
-        style={styles.input}>
+        style={styles.input}
+      >
         <Text style={dob ? styles.dateText : styles.placeholderStyle}>
           {dob || 'Select Date of Birth'}
         </Text>
@@ -101,24 +139,29 @@ const CreateProfileScreen = ({navigation}) => {
         <Text style={styles.unit}>CM</Text>
       </View>
 
-      {/* Go Back Button */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.goBack()}>
+      {/* Error Message */}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      {/* Next Button */}
+      <TouchableOpacity style={styles.button} onPress={handleNext}>
         <LinearGradient
           colors={['#8E44AD', '#A95CF1']}
-          style={styles.buttonGradient}>
-          <Text style={styles.buttonText}>Go Back</Text>
+          style={styles.buttonGradient}
+        >
+          <Text style={styles.buttonText}>Next</Text>
         </LinearGradient>
       </TouchableOpacity>
 
+      {/* Go Back Button */}
       <TouchableOpacity
         style={styles.button}
-        onPress={() => navigation.replace('Main')}>
+        onPress={() => navigation.goBack()}
+      >
         <LinearGradient
           colors={['#8E44AD', '#A95CF1']}
-          style={styles.buttonGradient}>
-          <Text style={styles.buttonText}>Next</Text>
+          style={styles.buttonGradient}
+        >
+          <Text style={styles.buttonText}>Go Back</Text>
         </LinearGradient>
       </TouchableOpacity>
     </LinearGradient>
@@ -126,14 +169,14 @@ const CreateProfileScreen = ({navigation}) => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, paddingHorizontal: 20, justifyContent: 'center'},
+  container: { flex: 1, paddingHorizontal: 20, justifyContent: 'center' },
   illustration: {
     width: 150,
     height: 150,
     alignSelf: 'center',
     marginBottom: 20,
   },
-  title: {fontSize: 24, fontWeight: 'bold', color: '#fff', textAlign: 'center'},
+  title: { fontSize: 24, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
   subtitle: {
     fontSize: 14,
     color: '#fff',
@@ -149,8 +192,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     justifyContent: 'center',
   },
-  placeholderStyle: {color: '#B8B8B8', fontSize: 16},
-  dateText: {fontSize: 16, color: '#333'},
+  placeholderStyle: { color: '#B8B8B8', fontSize: 16 },
+  dateText: { fontSize: 16, color: '#333' },
   inlineInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -160,13 +203,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     height: 50,
   },
-  inlineInput: {flex: 1, fontSize: 16},
-  unit: {fontSize: 16, color: '#A95CF1', fontWeight: 'bold'},
+  inlineInput: { flex: 1, fontSize: 16 },
+  unit: { fontSize: 16, color: '#A95CF1', fontWeight: 'bold' },
+  errorText: { color: 'red', textAlign: 'center', marginBottom: 10 },
   button: {
     width: '100%',
     height: 50,
     borderRadius: 25,
-    marginVertical: 10, // Adds spacing between buttons
+    marginVertical: 10,
   },
   buttonGradient: {
     flex: 1,
@@ -174,7 +218,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 25,
   },
-  buttonText: {color: '#fff', fontSize: 18, fontWeight: 'bold'},
+  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });
 
 export default CreateProfileScreen;
