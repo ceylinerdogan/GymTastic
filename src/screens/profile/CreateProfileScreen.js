@@ -14,6 +14,8 @@ import { Dropdown } from 'react-native-element-dropdown';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const CreateProfileScreen = ({ navigation }) => {
+  const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
   const [gender, setGender] = useState(null);
   const [dob, setDob] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -33,6 +35,14 @@ const CreateProfileScreen = ({ navigation }) => {
   };
 
   const validateFields = () => {
+    if (!name) {
+      setError('Please enter your name.');
+      return false;
+    }
+    if (!surname) {
+      setError('Please enter your surname.');
+      return false;
+    }
     if (!gender) {
       setError('Please select your gender.');
       return false;
@@ -63,7 +73,7 @@ const CreateProfileScreen = ({ navigation }) => {
 
   const handleNext = () => {
     if (validateFields()) {
-      navigation.replace('Main');
+      navigation.replace('Main', { name, surname }); // Pass name and surname to MainScreen
     }
   };
 
@@ -80,6 +90,24 @@ const CreateProfileScreen = ({ navigation }) => {
       <Text style={styles.subtitle}>
         It will help us to know more about you!
       </Text>
+
+      {/* Name Input */}
+      <TextInput
+        style={styles.input}
+        placeholder="Enter Your Name"
+        placeholderTextColor="#B8B8B8"
+        value={name}
+        onChangeText={setName}
+      />
+
+      {/* Surname Input */}
+      <TextInput
+        style={styles.input}
+        placeholder="Enter Your Surname"
+        placeholderTextColor="#B8B8B8"
+        value={surname}
+        onChangeText={setSurname}
+      />
 
       {/* Gender Dropdown */}
       <Dropdown

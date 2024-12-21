@@ -1,92 +1,114 @@
 import React, { useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    Image,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
 
 const LoginScreen = ({ navigation }) => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-    const validateEmail = (text) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(text)) {
-            setError('Invalid email format');
-        } else {
-            setError('');
-        }
-        setEmail(text);
-    };
+  // Initialize Google Sign-In
+  React.useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: 'YOUR_WEB_CLIENT_ID', // Replace with your web client ID from Google Console
+    });
+  }, []);
 
-    const handleLogin = () => {
-        if (!email || error) {
-            alert('Please enter a valid email address.');
-            return;
-        }
-        if (!password) {
-            alert('Password cannot be empty!');
-            return;
-        }
-        console.log('Logging in with:', email, password);
-        navigation.replace('Main'); // Navigate to Main Screen
-    };
+  const handleGoogleSignIn = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      console.log('Google User Info:', userInfo);
+      // Navigate to the next screen or register the user
+      navigation.replace('Main');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Google Sign-In Error', error.message);
+    }
+  };
 
-    return (
-        <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
-            <Image source={require('../../../assets/images/gym_icon.png')} style={styles.logo} />
+  const handleLogin = () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please fill in both email and password.');
+      return;
+    }
+    // Proceed with regular login logic
+    console.log('Logging in with email:', email);
+    navigation.replace('Main');
+  };
 
-            <Text style={styles.title}>Welcome Back!</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter Your Email"
-                placeholderTextColor="#B8B8B8"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={validateEmail}
-            />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+  return (
+    <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
+      <Text style={styles.title}>Login</Text>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#B8B8B8"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-            />
+      {/* Email Input */}
+      <TextInput
+        style={styles.input}
+        placeholder="Enter Email"
+        value={email}
+        onChangeText={setEmail}
+      />
 
-            <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                <LinearGradient colors={['#8E44AD', '#A95CF1']} style={styles.buttonGradient}>
-                    <Text style={styles.buttonText}>Login</Text>
-                </LinearGradient>
-            </TouchableOpacity>
+      {/* Password Input */}
+      <TextInput
+        style={styles.input}
+        placeholder="Enter Password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
 
-            <Text style={styles.registerText}>
-                Don't have an account?{' '}
-                <Text style={{ fontWeight: 'bold', color: '#A95CF1' }} onPress={() => navigation.navigate('Register')}>
-                    Register
-                </Text>
-            </Text>
+      {/* Login Button */}
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <LinearGradient colors={['#8E44AD', '#A95CF1']} style={styles.buttonGradient}>
+          <Text style={styles.buttonText}>Login</Text>
         </LinearGradient>
-    );
+      </TouchableOpacity>
+
+      {/* Google Sign-In Button */}
+      <GoogleSigninButton
+        style={styles.googleButton}
+        size={GoogleSigninButton.Size.Wide}
+        color={GoogleSigninButton.Color.Light}
+        onPress={handleGoogleSignIn}
+      />
+
+      {/* Register Navigation */}
+      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+        <Text style={styles.registerText}>Don't have an account? Register</Text>
+      </TouchableOpacity>
+    </LinearGradient>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, justifyContent: 'center' },
-    logo: { width: 120, height: 120, alignSelf: 'center', marginBottom: 20 },
-    title: { fontSize: 28, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
-    input: { backgroundColor: '#fff', borderRadius: 25, marginBottom: 15, paddingHorizontal: 20, height: 50 },
-    button: { height: 50, borderRadius: 25, marginBottom: 10 },
-    buttonGradient: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 25 },
-    buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    errorText: { color: 'red', fontSize: 12, marginBottom: 10 },
-    registerText: { color: '#fff', textAlign: 'center', fontSize: 14 },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 20 },
+  input: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#fff',
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    marginBottom: 15,
+  },
+  button: { width: '100%', height: 50, borderRadius: 25 },
+  buttonGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 25,
+  },
+  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  googleButton: { width: '100%', height: 60, marginVertical: 20 },
+  registerText: { color: '#fff', marginTop: 15 },
 });
 
 export default LoginScreen;
