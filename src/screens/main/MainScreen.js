@@ -1,129 +1,87 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Image,
-} from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
 const MainScreen = ({ route, navigation }) => {
-  const { name = 'User', surname = '' } = route.params || {}; // Retrieve name and surname from route.params
-  const [activeTab, setActiveTab] = useState('Main');
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'Main':
-        return (
-          <View style={styles.gridContainer}>
-            {/* Start Workout */}
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate('StartWorkout')}
-            >
-              <Image
-                source={require('../../../assets/images/gym_icon.png')}
-                style={styles.icon}
-              />
-              <Text style={styles.cardText}>Start Workout</Text>
-            </TouchableOpacity>
-
-            {/* Workout History */}
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate('WorkoutHistory')}
-            >
-              <Image
-                source={require('../../../assets/images/gym_icon.png')}
-                style={styles.icon}
-              />
-              <Text style={styles.cardText}>Workout History</Text>
-            </TouchableOpacity>
-
-            {/* Profile */}
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate('Profile')}
-            >
-              <Image
-                source={require('../../../assets/images/gym_icon.png')}
-                style={styles.icon}
-              />
-              <Text style={styles.cardText}>My Profile</Text>
-            </TouchableOpacity>
-
-            {/* Workout Library */}
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate('WorkoutLibrary')}
-            >
-              <Image
-                source={require('../../../assets/images/gym_icon.png')}
-                style={styles.icon}
-              />
-              <Text style={styles.cardText}>Workout Library</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      case 'WorkoutLibrary':
-        return <Text style={styles.content}>Workout Library Page</Text>;
-      case 'WorkoutHistory':
-        return <Text style={styles.content}>Workout History Page</Text>;
-      case 'Profile':
-        return <Text style={styles.content}>Profile Page</Text>;
-      default:
-        return null;
-    }
-  };
+  const { name = 'Ecem', surname = 'Kaynar' } = route.params || {};
 
   return (
     <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
-      {/* Welcome User */}
-      <Text style={styles.title}>
-        Welcome, {name} {surname}!
-      </Text>
+      {/* Welcome Section */}
+      <View style={styles.header}>
+        <Text style={styles.greeting}>Hi, {name} {surname}</Text>
+        <Text style={styles.subtitle}>Let's check your activity</Text>
+      </View>
 
-      {/* Main Content */}
-      <View style={styles.contentContainer}>{renderContent()}</View>
+      {/* Statistics Section */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>5</Text>
+          <Text style={styles.statLabel}>Completed Workouts</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>1</Text>
+          <Text style={styles.statLabel}>Workouts in Progress</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>30</Text>
+          <Text style={styles.statLabel}>Minutes Spent</Text>
+        </View>
+      </View>
 
-      {/* Bottom Navigation Bar */}
+      {/* Discover New Workouts Section */}
+      <View style={styles.workoutsContainer}>
+        <TouchableOpacity style={styles.workoutCard}>
+          <Image source={require('../../../assets/images/squat.png')} style={styles.workoutImage} />
+          <Text style={styles.workoutTitle}>Squat</Text>
+          <Text style={styles.workoutDetails}>10 Reps • 3 Sets</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.workoutCard}>
+          <Image source={require('../../../assets/images/plank.png')} style={styles.workoutImage} />
+          <Text style={styles.workoutTitle}>Plank</Text>
+          <Text style={styles.workoutDetails}>Hold for 60s • 3 Sets</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.workoutCard}>
+          <Image source={require('../../../assets/images/lunge.jpg')} style={styles.workoutImage} />
+          <Text style={styles.workoutTitle}>Lunge</Text>
+          <Text style={styles.workoutDetails}>10 Reps • 3 Sets</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Main Image with Start Workout Button */}
+      <View style={styles.mainImageContainer}>
+        <Image
+          source={require('../../../assets/images/main_image2.png')} // Replace with your main image
+          style={styles.mainImage}
+        />
+        <TouchableOpacity
+          style={styles.startWorkoutButton}
+          onPress={() => navigation.navigate('StartWorkout')}
+        >
+          <Text style={styles.startWorkoutText}>Start Workout</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Progress Section */}
+      <View style={styles.progressContainer}>
+        <Text style={styles.progressText}>
+          Keep the progress! You're improving every day!
+        </Text>
+      </View>
+
+      {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setActiveTab('Main')}
-        >
-          <Text style={activeTab === 'Main' ? styles.navTextActive : styles.navText}>
-            Main
-          </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Main')}>
+          <Text style={styles.navText}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setActiveTab('WorkoutLibrary')}
-        >
-          <Text
-            style={activeTab === 'WorkoutLibrary' ? styles.navTextActive : styles.navText}
-          >
-            Library
-          </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('WorkoutsScreen')}>
+          <Text style={styles.navText}>Workouts</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setActiveTab('WorkoutHistory')}
-        >
-          <Text
-            style={activeTab === 'WorkoutHistory' ? styles.navTextActive : styles.navText}
-          >
-            History
-          </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('WorkoutHistory')}>
+          <Text style={styles.navText}>History</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setActiveTab('Profile')}
-        >
-          <Text style={activeTab === 'Profile' ? styles.navTextActive : styles.navText}>
-            Profile
-          </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          <Text style={styles.navText}>Profile</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -133,71 +91,128 @@ const MainScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
     paddingHorizontal: 20,
+    paddingTop: 40,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
+  header: {
     marginBottom: 20,
   },
-  contentContainer: {
-    flex: 1,
-  },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  card: {
-    width: '48%',
-    height: 150,
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 15,
-    elevation: 5,
-  },
-  icon: {
-    width: 60,
-    height: 60,
-    marginBottom: 10,
-  },
-  cardText: {
-    fontSize: 16,
+  greeting: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
   },
-  content: {
+  subtitle: {
     fontSize: 18,
     color: '#fff',
-    textAlign: 'center',
+    marginTop: 5,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 20,
+    marginBottom: 20,
+  },
+  statBox: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#A95CF1',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#333',
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  workoutsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  workoutCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    width: '30%', // Adjust the width to make all cards equal
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    height: 130, // Fixed height for consistency
+  },
+  workoutImage: {
+    width: 50,
+    height: 50,
+    marginBottom: 10,
+  },
+  workoutTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  workoutDetails: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  mainImageContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    alignItems: 'center',
+    padding: 15,
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  mainImage: {
+    width: '80%',
+    height: 150,
+    resizeMode: 'contain',
+    marginBottom: 10,
+  },
+  startWorkoutButton: {
+    backgroundColor: '#8E44AD',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 100,
+  },
+  startWorkoutText: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  progressContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
   },
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
-    height: 60,
+    paddingVertical: 10,
     backgroundColor: '#8E44AD',
-    borderRadius: 30,
-    marginBottom: 25,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 25,
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
   },
   navText: {
     color: '#fff',
     fontSize: 16,
-  },
-  navTextActive: {
-    color: '#A95CF1',
-    fontSize: 18,
     fontWeight: 'bold',
   },
 });
