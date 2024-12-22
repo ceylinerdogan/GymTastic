@@ -73,7 +73,7 @@ const MainScreen = ({ route, navigation }) => {
         />
         <TouchableOpacity
           style={styles.startWorkoutButton}
-          onPress={() => navigation.navigate('WorkoutsScreen')}
+          onPress={() => navigation.navigate('StartWorkout')}
         >
           <Text style={styles.startWorkoutText}>Start Workout</Text>
         </TouchableOpacity>
