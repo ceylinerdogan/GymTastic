@@ -30,7 +30,7 @@ const CreateProfileScreen = ({ navigation }) => {
   ];
 
   const onChangeDate = (event, selectedDate) => {
-    setShowDatePicker(Platform.OS === 'ios');
+    setShowDatePicker(false);
     if (selectedDate) setDob(selectedDate.toLocaleDateString());
   };
 
@@ -73,7 +73,14 @@ const CreateProfileScreen = ({ navigation }) => {
 
   const handleNext = () => {
     if (validateFields()) {
-      navigation.replace('Main', { name, surname }); // Pass name and surname to MainScreen
+      navigation.navigate('Main', {
+        name,
+        surname,
+        gender,
+        dob,
+        weight,
+        height,
+      });
     }
   };
 
@@ -177,19 +184,6 @@ const CreateProfileScreen = ({ navigation }) => {
           style={styles.buttonGradient}
         >
           <Text style={styles.buttonText}>Next</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-
-      {/* Go Back Button */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.goBack()}
-      >
-        <LinearGradient
-          colors={['#8E44AD', '#A95CF1']}
-          style={styles.buttonGradient}
-        >
-          <Text style={styles.buttonText}>Go Back</Text>
         </LinearGradient>
       </TouchableOpacity>
     </LinearGradient>

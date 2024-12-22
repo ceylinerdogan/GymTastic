@@ -3,7 +3,15 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
 const MainScreen = ({ route, navigation }) => {
-  const { name = 'Ecem', surname = 'Kaynar' } = route.params || {};
+  // Retrieve user data from route params
+  const {
+    name = 'Ecem',
+    surname = 'Kaynar',
+    gender = 'N/A',
+    dob = 'N/A',
+    weight = 'N/A',
+    height = 'N/A',
+  } = route.params || {};
 
   return (
     <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
@@ -32,17 +40,26 @@ const MainScreen = ({ route, navigation }) => {
       {/* Discover New Workouts Section */}
       <View style={styles.workoutsContainer}>
         <TouchableOpacity style={styles.workoutCard}>
-          <Image source={require('../../../assets/images/squat.png')} style={styles.workoutImage} />
+          <Image
+            source={require('../../../assets/images/squat.png')}
+            style={styles.workoutImage}
+          />
           <Text style={styles.workoutTitle}>Squat</Text>
           <Text style={styles.workoutDetails}>10 Reps • 3 Sets</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.workoutCard}>
-          <Image source={require('../../../assets/images/plank.png')} style={styles.workoutImage} />
+          <Image
+            source={require('../../../assets/images/plank.png')}
+            style={styles.workoutImage}
+          />
           <Text style={styles.workoutTitle}>Plank</Text>
           <Text style={styles.workoutDetails}>Hold for 60s • 3 Sets</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.workoutCard}>
-          <Image source={require('../../../assets/images/lunge.jpg')} style={styles.workoutImage} />
+          <Image
+            source={require('../../../assets/images/lunge.jpg')}
+            style={styles.workoutImage}
+          />
           <Text style={styles.workoutTitle}>Lunge</Text>
           <Text style={styles.workoutDetails}>10 Reps • 3 Sets</Text>
         </TouchableOpacity>
@@ -56,7 +73,7 @@ const MainScreen = ({ route, navigation }) => {
         />
         <TouchableOpacity
           style={styles.startWorkoutButton}
-          onPress={() => navigation.navigate('StartWorkout')}
+          onPress={() => navigation.navigate('WorkoutsScreen')}
         >
           <Text style={styles.startWorkoutText}>Start Workout</Text>
         </TouchableOpacity>
@@ -71,7 +88,7 @@ const MainScreen = ({ route, navigation }) => {
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity onPress={() => navigation.navigate('Main')}>
+        <TouchableOpacity onPress={() => navigation.navigate('Main', { name, surname, gender, dob, weight, height })}>
           <Text style={styles.navText}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('WorkoutsScreen')}>
@@ -80,7 +97,11 @@ const MainScreen = ({ route, navigation }) => {
         <TouchableOpacity onPress={() => navigation.navigate('WorkoutHistory')}>
           <Text style={styles.navText}>History</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate('Profile', { name, surname, gender, dob, weight, height })
+          }
+        >
           <Text style={styles.navText}>Profile</Text>
         </TouchableOpacity>
       </View>

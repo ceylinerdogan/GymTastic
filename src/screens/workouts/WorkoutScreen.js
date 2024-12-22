@@ -27,9 +27,6 @@ const WorkoutsScreen = ({ navigation }) => {
           <TouchableOpacity style={styles.filterButton}>
             <Text style={styles.filterText}>All Equipment</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterButton}>
-            <Text style={styles.filterText}>Chest</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
