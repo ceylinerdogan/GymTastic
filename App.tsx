@@ -10,6 +10,9 @@ import MainScreen from './src/screens/main/MainScreen';
 import WorkoutsScreen from './src/screens/workouts/WorkoutScreen';
 import WorkoutHistoryScreen from './src/screens/history/WorkoutHistoryScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
+import StartWorkout from './src/screens/workouts/StartWorkout';
+import WorkoutVideo from './src/screens/workouts/WorkoutVideo';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +28,8 @@ const App = () => {
         <Stack.Screen name="WorkoutsScreen" component={WorkoutsScreen} options={{ title: 'Workouts' }} />
         <Stack.Screen name="WorkoutHistory" component={WorkoutHistoryScreen} options={{ title: 'Workout History' }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
+        <Stack.Screen name="StartWorkout" component={StartWorkout} options={{ title: 'Workout Types' }}/>
+        <Stack.Screen name="WorkoutVideo" component={WorkoutVideo} options={{ title: 'Workout Video' }}/>
       </Stack.Navigator>
     </NavigationContainer>
   );
