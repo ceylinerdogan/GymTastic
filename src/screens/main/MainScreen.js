@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
 const MainScreen = ({ route, navigation }) => {
-  // Retrieve user data from route params
   const {
     name = 'Ecem',
     surname = 'Kaynar',
@@ -68,7 +67,7 @@ const MainScreen = ({ route, navigation }) => {
       {/* Main Image with Start Workout Button */}
       <View style={styles.mainImageContainer}>
         <Image
-          source={require('../../../assets/images/main_image2.png')} // Replace with your main image
+          source={require('../../../assets/images/main_image2.png')} 
           style={styles.mainImage}
         />
         <TouchableOpacity
@@ -161,11 +160,11 @@ const styles = StyleSheet.create({
   workoutCard: {
     backgroundColor: '#fff',
     borderRadius: 10,
-    width: '30%', // Adjust the width to make all cards equal
+    width: '30%',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 10,
-    height: 130, // Fixed height for consistency
+    height: 130,
   },
   workoutImage: {
     width: 50,

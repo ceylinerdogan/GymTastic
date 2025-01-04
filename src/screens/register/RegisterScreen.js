@@ -49,7 +49,7 @@ const RegisterScreen = ({ navigation }) => {
             return;
         }
         console.log('Registering:', email);
-        navigation.replace('CreateProfile'); // Go to Profile Screen
+        navigation.replace('CreateProfile'); 
     };
 
     return (

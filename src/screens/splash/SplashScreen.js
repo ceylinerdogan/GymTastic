@@ -3,19 +3,19 @@ import {View, Text, StyleSheet, Image} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
 const SplashScreen = ({navigation}) => {
-  // Automatically navigate to LoginScreen after 3 seconds
+  // it will go to login screen after 3s
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.replace('Login'); // Navigate to LoginScreen
+      navigation.replace('Login'); 
     }, 3000); // 3 seconds delay
 
-    return () => clearTimeout(timer); // Clean up timer
+    return () => clearTimeout(timer); 
   }, [navigation]);
 
   return (
     <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
       <Image
-        source={require('../../../assets/images/gym.jpg')} // Add your app logo here
+        source={require('../../../assets/images/gym.jpg')} 
         style={styles.logo}
       />
       <Text style={styles.appName}>GYM-Tastic</Text>

@@ -37,7 +37,7 @@ const StartWorkout = ({ navigation }) => {
           <TouchableOpacity
             key={workout.id}
             style={styles.workoutCard}
-            onPress={() => navigation.navigate('WorkoutVideo', { workout })} // Pass workout to WorkoutVideo
+            onPress={() => navigation.navigate('WorkoutVideo', { workout })}
           >
             <Text style={styles.workoutName}>{workout.name}</Text>
             <Text style={styles.workoutDescription}>{workout.description}</Text>

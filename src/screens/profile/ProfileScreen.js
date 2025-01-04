@@ -22,6 +22,18 @@ const ProfileScreen = ({ route }) => {
     { label: 'Other', value: 'Other' },
   ];
 
+  // Calculate BMI
+  const calculateBMI = () => {
+    const weightInKg = parseFloat(editWeight);
+    const heightInMeters = parseFloat(editHeight) / 100;
+    if (!weightInKg) 
+      return 'Enter weight!';
+    if(!heightInMeters)
+      return 'Enter height!';
+
+    return (weightInKg / (heightInMeters * heightInMeters)).toFixed(2);
+  };
+
   const handleSave = () => {
     if (!editName || !editSurname || !editGender || !editDob || !editWeight || !editHeight) {
       Alert.alert('Error', 'All fields must be filled.');
@@ -114,6 +126,11 @@ const ProfileScreen = ({ route }) => {
         ) : (
           <Text style={styles.infoValue}>{editHeight || 'N/A'} cm</Text>
         )}
+      </View>
+
+      <View style={styles.infoContainer}>
+        <Text style={styles.infoLabel}>BMI:</Text>
+        <Text style={styles.infoValue}>{calculateBMI()}</Text>
       </View>
 
       {/* Edit / Save Button */}

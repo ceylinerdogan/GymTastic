@@ -1,10 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Video from 'react-native-video'; // Import Video from react-native-video
+import Video from 'react-native-video'; 
 
 const WorkoutVideo = ({ route }) => {
-  const { workout } = route.params; // Retrieve workout from navigation parameters
-
+  const { workout } = route.params;
   return (
     <View style={styles.container}>
       {/* Workout Title */}
@@ -12,11 +11,11 @@ const WorkoutVideo = ({ route }) => {
 
       {/* Workout Video */}
       <Video
-        source={workout.videoUrl} // Use the videoUrl passed from StartWorkout
+        source={workout.videoUrl}
         style={styles.video}
-        controls // Enable default video controls (play, pause, etc.)
-        resizeMode="contain" // Maintain aspect ratio within container
-        paused={false} // Start playing automatically
+        controls
+        resizeMode="contain"
+        paused={false}
       />
 
       {/* Workout Description */}

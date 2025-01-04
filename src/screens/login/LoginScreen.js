@@ -14,10 +14,9 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Initialize Google Sign-In
   React.useEffect(() => {
     GoogleSignin.configure({
-      webClientId: 'YOUR_WEB_CLIENT_ID', // Replace with your web client ID from Google Console
+      webClientId: 'YOUR_WEB_CLIENT_ID', 
     });
   }, []);
 
@@ -26,7 +25,6 @@ const LoginScreen = ({ navigation }) => {
       await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
       console.log('Google User Info:', userInfo);
-      // Navigate to the next screen or register the user
       navigation.replace('Main');
     } catch (error) {
       console.error(error);
@@ -39,7 +37,6 @@ const LoginScreen = ({ navigation }) => {
       Alert.alert('Error', 'Please fill in both email and password.');
       return;
     }
-    // Proceed with regular login logic
     console.log('Logging in with email:', email);
     navigation.replace('Main');
   };
