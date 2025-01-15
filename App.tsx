@@ -12,6 +12,7 @@ import WorkoutHistoryScreen from './src/screens/history/WorkoutHistoryScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
 import StartWorkout from './src/screens/workouts/StartWorkout';
 import WorkoutVideo from './src/screens/workouts/WorkoutVideo';
+import PoseFeedback from './src/screens/camera/PoseFeedback';
 
 
 const Stack = createNativeStackNavigator();
@@ -30,6 +31,7 @@ const App = () => {
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
         <Stack.Screen name="StartWorkout" component={StartWorkout} options={{ title: 'Workout Types' }}/>
         <Stack.Screen name="WorkoutVideo" component={WorkoutVideo} options={{ title: 'Workout Video' }}/>
+        <Stack.Screen name="PoseFeedback" component={PoseFeedback} />
       </Stack.Navigator>
     </NavigationContainer>
   );
