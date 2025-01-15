@@ -1,111 +1,71 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
-import { Camera, useCameraDevices } from 'react-native-vision-camera';
-import { PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, PermissionsAndroid, Platform } from 'react-native';
+import { Camera, useCameraDevice } from 'react-native-vision-camera';
+import { useFrameProcessor } from 'react-native-vision-camera';
+import runOnJS from 'react-native-reanimated';
 
 const PoseCamera = () => {
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
-  const [selectedDevice, setSelectedDevice] = useState(null);
-  const devices = useCameraDevices();
+  const [cameraPermission, setCameraPermission] = useState(false);
+  const device = useCameraDevice('front');
+  // const frameProcessor = useFrameProcessor((frame) => {
+  //   'worklet'
+  //   console.log(`Frame: ${frame.width}x${frame.height} (${frame.pixelFormat})`)
+  // }, [])
 
   useEffect(() => {
-    async function requestPermissions() {
-      console.log('[PoseCamera] Requesting camera and microphone permissions...');
-      const granted = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      ]);
+    const requestPermissions = async () => {
+      let hasPermission = false;
 
-      // Check if permissions are granted
-      const cameraPermission = granted[PermissionsAndroid.PERMISSIONS.CAMERA];
-      const audioPermission = granted[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
-
-      if (cameraPermission === PermissionsAndroid.RESULTS.GRANTED && audioPermission === PermissionsAndroid.RESULTS.GRANTED) {
-        console.log('[PoseCamera] Permissions granted for both camera and microphone.');
-        setPermissionsGranted(true);
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Kamera İzni Gerekli',
+            message: 'Bu uygulama kameraya erişim gerektiriyor.',
+            buttonNeutral: 'Daha Sonra',
+            buttonNegative: 'İptal',
+            buttonPositive: 'Tamam',
+          }
+        );
+        hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
       } else {
-        // Log which permission was denied
-        if (cameraPermission !== PermissionsAndroid.RESULTS.GRANTED) {
-          console.warn('[PoseCamera] Camera permission not granted.');
-        }
-        if (audioPermission !== PermissionsAndroid.RESULTS.GRANTED) {
-          console.warn('[PoseCamera] Audio permission not granted.');
-        }
-        setPermissionsGranted(false);
+        const status = await Camera.requestCameraPermission();
+        hasPermission = status === 'authorized';
       }
-    }
+
+      setCameraPermission(hasPermission);
+    };
 
     requestPermissions();
   }, []);
 
-  useEffect(() => {
-    if (permissionsGranted && devices) {
-      console.log('[PoseCamera] Available devices:', devices);
-
-      // Select the back camera as default
-      const backCamera = devices.back;
-      if (backCamera) {
-        console.log('[PoseCamera] Back camera selected:', backCamera);
-        setSelectedDevice(backCamera);
-      } else {
-        console.warn('[PoseCamera] No back camera found.');
-      }
-    }
-  }, [permissionsGranted, devices]);
-
-  useEffect(() => {
-    initializeCamera();
-  }, []);
-
-  async function initializeCamera() {
-    try {
-      const devices = await Camera.getAvailableCameraDevices();
-      console.log('[PoseCamera] Available devices:', devices);
-
-      if (devices.length === 0) {
-        console.warn('[PoseCamera] No camera devices found.');
-        return;
-      }
-
-      // Proceed with camera setup
-      const backCamera = devices.find(device => device.position === 'back');
-      if (!backCamera) {
-        console.warn('[PoseCamera] No back camera found.');
-        return;
-      }
-
-      // Initialize camera with backCamera
-      // ... camera initialization code ...
-    } catch (error) {
-      console.error('[PoseCamera] Error initializing camera:', error);
-    }
-  }
-
-  if (!permissionsGranted) {
+  if (!cameraPermission) {
     return (
       <View style={styles.container}>
-        <Text style={styles.warningText}>Permissions not granted. Please enable camera and microphone permissions.</Text>
+        <Text style={styles.warningText}>Kamera izni verilmedi. Lütfen izin verin.</Text>
       </View>
     );
   }
 
-  if (!selectedDevice) {
+  if (!device) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>No camera devices found. Please check your device.</Text>
+        <Text style={styles.warningText}>Kamera bulunamadı veya yükleniyor...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Camera
-        style={StyleSheet.absoluteFill}
-        device={selectedDevice}
-        isActive={true}
-      />
+      <Camera 
+        style={StyleSheet.absoluteFill} 
+        device={device} 
+        isActive={true} 
+        // frameProcessor={frameProcessor}
+        // frameProcessorFps={5}
+        />
       <View style={styles.overlay}>
-        <Text style={styles.infoText}>Camera is active</Text>
+        <Text style={styles.infoText}>Kamera Aktif</Text>
       </View>
     </View>
   );
@@ -120,11 +80,6 @@ const styles = StyleSheet.create({
   },
   warningText: {
     color: 'red',
-    fontSize: 18,
-    textAlign: 'center',
-  },
-  loadingText: {
-    color: 'white',
     fontSize: 18,
     textAlign: 'center',
   },
