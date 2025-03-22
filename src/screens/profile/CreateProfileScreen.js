@@ -425,6 +425,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                   <TextInput
                     style={[styles.input, nameError ? styles.inputError : null]}
                     placeholder="First Name"
+                    placeholderTextColor="#999"
                     value={name}
                     onChangeText={setName}
                     onBlur={() => validateName(name)}
@@ -436,6 +437,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                   <TextInput
                     style={[styles.input, surnameError ? styles.inputError : null]}
                     placeholder="Last Name"
+                    placeholderTextColor="#999"
                     value={surname}
                     onChangeText={setSurname}
                     onBlur={() => validateSurname(surname)}
@@ -466,6 +468,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                   <TextInput
                     style={[styles.input, dobError ? styles.inputError : null]}
                     placeholder="Date of Birth (DD.MM.YYYY)"
+                    placeholderTextColor="#999"
                     value={dob}
                     onChangeText={setDob}
                     keyboardType="numeric"
@@ -484,6 +487,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                     <TextInput
                       style={[styles.input, weightError ? styles.inputError : null]}
                       placeholder="Weight"
+                      placeholderTextColor="#999"
                       value={weight}
                       onChangeText={(text) => {
                         setWeight(text);
@@ -500,6 +504,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                     <TextInput
                       style={[styles.input, heightError ? styles.inputError : null]}
                       placeholder="Height"
+                      placeholderTextColor="#999"
                       value={height}
                       onChangeText={(text) => {
                         setHeight(text);
