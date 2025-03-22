@@ -57,16 +57,13 @@ const PoseCamera = () => {
 
   return (
     <View style={styles.container}>
-      <Camera 
-        style={StyleSheet.absoluteFill} 
+      <Camera
+        style={StyleSheet.absoluteFill}
         device={device} 
         isActive={true} 
         // frameProcessor={frameProcessor}
         // frameProcessorFps={5}
-        />
-      <View style={styles.overlay}>
-        <Text style={styles.infoText}>Kamera Aktif</Text>
-      </View>
+      />
     </View>
   );
 };
@@ -82,18 +79,7 @@ const styles = StyleSheet.create({
     color: 'red',
     fontSize: 18,
     textAlign: 'center',
-  },
-  overlay: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    alignItems: 'center',
-  },
-  infoText: {
-    color: 'white',
-    fontSize: 18,
-  },
+  }
 });
 
 export default PoseCamera;
