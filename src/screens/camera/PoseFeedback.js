@@ -1,39 +1,69 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Button, Alert } from 'react-native';
 import PoseCamera from './PoseCamera';
 
-const PoseFeedback = () => {
+const PoseFeedback = ({ navigation }) => {
   const [feedback, setFeedback] = useState('Perfect your posture!');
+  const [cameraReady, setCameraReady] = useState(false);
 
-  const sendFrameToBackend = async (base64Frame) => {
+  const sendFrameToBackend = async (frameData) => {
+    console.log('[PoseFeedback] Received frame data:', typeof frameData);
+    
     try {
-      console.log('[PoseFeedback] Sending frame to backend...');
-      const response = await fetch('https://your-backend-url/analyze-pose', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frame: base64Frame }),
-      });
-
-      const { feedbackMessage } = await response.json();
-      console.log('[PoseFeedback] Feedback received:', feedbackMessage);
-      setFeedback(feedbackMessage);
+      // In a real app, you would send the frame to your backend
+      // For now, we'll simulate a response
+      const feedbackOptions = [
+        'Great posture! Keep it up.',
+        'Lower your hips more for proper form.',
+        'Keep your back straight.',
+        'Perfect form!',
+        'Knees should not extend beyond toes.',
+      ];
+      
+      const randomFeedback = feedbackOptions[Math.floor(Math.random() * feedbackOptions.length)];
+      setFeedback(randomFeedback);
     } catch (error) {
-      console.error('[PoseFeedback] Error sending frame to backend:', error);
+      console.error('[PoseFeedback] Error processing frame:', error);
     }
+  };
+
+  // Handle camera errors
+  const handleCameraError = (error) => {
+    console.error('[PoseFeedback] Camera error:', error);
+    Alert.alert(
+      "Camera Error",
+      "There was a problem with the camera. Please try again or use a different device.",
+      [{ text: "OK", onPress: () => navigation && navigation.goBack() }]
+    );
   };
 
   return (
     <View style={styles.container}>
-      <PoseCamera onFrameProcessed={sendFrameToBackend} />
+      <PoseCamera 
+        onFrameProcessed={sendFrameToBackend}
+        onCameraReady={() => setCameraReady(true)}
+        onError={handleCameraError}
+      />
       <View style={styles.feedbackContainer}>
-        <Text style={styles.feedbackText}>{feedback}</Text>
+        <Text style={styles.feedbackText}>
+          {cameraReady ? feedback : 'Initializing camera...'}
+        </Text>
+        {!cameraReady && (
+          <Button
+            title="Go Back"
+            onPress={() => navigation && navigation.goBack()}
+          />
+        )}
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { 
+    flex: 1,
+    backgroundColor: '#000',
+  },
   feedbackContainer: {
     position: 'absolute',
     bottom: 20,
@@ -41,11 +71,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     padding: 10,
     borderRadius: 10,
+    width: '90%',
   },
   feedbackText: {
     color: '#fff',
     fontSize: 18,
     textAlign: 'center',
+    marginBottom: 10,
   },
 });
 

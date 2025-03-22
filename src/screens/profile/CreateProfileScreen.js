@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,241 +6,1011 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  SafeAreaView,
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Modal,
   Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Dropdown } from 'react-native-element-dropdown';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { authService } from '../../services/api';
 
-const CreateProfileScreen = ({ navigation }) => {
+// Fitness goal options
+const fitnessGoals = [
+  { label: 'Lose Weight', value: 'lose_weight' },
+  { label: 'Build Muscle', value: 'build_muscle' },
+  { label: 'Improve Fitness', value: 'improve_fitness' },
+  { label: 'Maintain Health', value: 'maintain_health' },
+];
+
+// Activity level options
+const activityLevels = [
+  { label: 'Sedentary (little or no exercise)', value: 'sedentary' },
+  { label: 'Lightly active (light exercise 1-3 days/week)', value: 'light' },
+  { label: 'Moderately active (moderate exercise 3-5 days/week)', value: 'moderate' },
+  { label: 'Very active (hard exercise 6-7 days/week)', value: 'very_active' },
+  { label: 'Extra active (very hard exercise & physical job)', value: 'extra_active' },
+];
+
+// Gender options
+const genderOptions = [
+  { label: 'Male', value: 'Male' },
+  { label: 'Female', value: 'Female' },
+  { label: 'Other', value: 'Other' },
+  { label: 'Prefer not to say', value: 'Not_specified' },
+];
+
+const CreateProfileScreen = ({ navigation, route }) => {
+  // Get email and userId from navigation params if available
+  const { email, userId } = route.params || {};
+  
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
   const [gender, setGender] = useState(null);
   const [dob, setDob] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
-  const [error, setError] = useState('');
+  const [goal, setGoal] = useState(null);
+  const [activityLevel, setActivityLevel] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [helpContent, setHelpContent] = useState({ title: '', content: '' });
+  const [profileImage, setProfileImage] = useState(null);
+  const [showImageOptions, setShowImageOptions] = useState(false);
 
-  const genderOptions = [
-    { label: 'Male', value: 'Male' },
-    { label: 'Female', value: 'Female' },
-    { label: 'Other', value: 'Other' },
-  ];
+  // Form validation states
+  const [nameError, setNameError] = useState('');
+  const [surnameError, setSurnameError] = useState('');
+  const [genderError, setGenderError] = useState('');
+  const [dobError, setDobError] = useState('');
+  const [weightError, setWeightError] = useState('');
+  const [heightError, setHeightError] = useState('');
+  const [goalError, setGoalError] = useState('');
+  const [activityLevelError, setActivityLevelError] = useState('');
 
-  const onChangeDate = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (selectedDate) setDob(selectedDate.toLocaleDateString());
-  };
+  // Clear fields when component mounts
+  useEffect(() => {
+    // Reset all form fields to ensure we don't show cached data
+    setName('');
+    setSurname('');
+    setGender(null);
+    setDob('');
+    setWeight('');
+    setHeight('');
+    setGoal(null);
+    setActivityLevel(null);
+    setProfileImage(null);
+    
+    console.log('CreateProfile: Cleared all fields, using userId:', userId);
+  }, [userId]);
 
-  const validateFields = () => {
-    if (!name) {
-      setError('Please enter your name.');
+  const validateName = (name) => {
+    if (!name.trim()) {
+      setNameError('First name is required');
       return false;
     }
-    if (!surname) {
-      setError('Please enter your surname.');
-      return false;
-    }
-    if (!gender) {
-      setError('Please select your gender.');
-      return false;
-    }
-    if (!dob) {
-      setError('Please select your date of birth.');
-      return false;
-    }
-    if (!weight) {
-      setError('Please enter your weight.');
-      return false;
-    }
-    if (isNaN(weight)) {
-      setError('Weight must be a valid number.');
-      return false;
-    }
-    if (!height) {
-      setError('Please enter your height.');
-      return false;
-    }
-    if (isNaN(height)) {
-      setError('Height must be a valid number.');
-      return false;
-    }
-    setError('');
+    setNameError('');
     return true;
   };
 
-  const handleNext = () => {
-    if (validateFields()) {
-      navigation.navigate('Main', {
-        name,
-        surname,
-        gender,
-        dob,
-        weight,
-        height,
-      });
+  const validateSurname = (surname) => {
+    if (!surname.trim()) {
+      setSurnameError('Last name is required');
+      return false;
+    }
+    setSurnameError('');
+    return true;
+  };
+
+  const validateGender = (gender) => {
+    if (!gender) {
+      setGenderError('Please select your gender');
+      return false;
+    }
+    setGenderError('');
+    return true;
+  };
+
+  const validateDob = (dob) => {
+    // Basic date format validation (DD.MM.YYYY)
+    const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\.(0[1-9]|1[0-2])\.\d{4}$/;
+    if (!dob) {
+      setDobError('Date of birth is required');
+      return false;
+    } else if (!dateRegex.test(dob)) {
+      setDobError('Please use format: DD.MM.YYYY');
+      return false;
+    }
+    setDobError('');
+    return true;
+  };
+
+  const validateWeight = (weight) => {
+    if (!weight) {
+      setWeightError('Weight is required');
+      return false;
+    } else if (isNaN(weight) || parseFloat(weight) <= 0) {
+      setWeightError('Please enter a valid weight');
+      return false;
+    } else if (parseFloat(weight) < 30 || parseFloat(weight) > 300) {
+      setWeightError('Weight should be between 30-300kg');
+      return false;
+    }
+    setWeightError('');
+    return true;
+  };
+
+  const validateHeight = (height) => {
+    if (!height) {
+      setHeightError('Height is required');
+      return false;
+    } else if (isNaN(height) || parseFloat(height) <= 0) {
+      setHeightError('Please enter a valid height');
+      return false;
+    } else if (parseFloat(height) < 100 || parseFloat(height) > 250) {
+      setHeightError('Height should be between 100-250cm');
+      return false;
+    }
+    setHeightError('');
+    return true;
+  };
+
+  const validateGoal = (goal) => {
+    if (!goal) {
+      setGoalError('Please select your fitness goal');
+      return false;
+    }
+    setGoalError('');
+    return true;
+  };
+
+  const validateActivityLevel = (level) => {
+    if (!level) {
+      setActivityLevelError('Please select your activity level');
+      return false;
+    }
+    setActivityLevelError('');
+    return true;
+  };
+
+  const calculateBMI = () => {
+    if (weight && height) {
+      const weightNum = parseFloat(weight);
+      const heightNum = parseFloat(height) / 100; // Convert cm to m
+      const bmi = weightNum / (heightNum * heightNum);
+      return bmi.toFixed(1);
+    }
+    return null;
+  };
+
+  const getBMICategory = (bmi) => {
+    if (!bmi) return '';
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25) return 'Normal weight';
+    if (bmi < 30) return 'Overweight';
+    return 'Obese';
+  };
+
+  const getBMIColor = (bmi) => {
+    if (!bmi) return '#ccc';
+    if (bmi < 18.5) return '#64B5F6'; // Blue for underweight
+    if (bmi < 25) return '#4CD964'; // Green for normal
+    if (bmi < 30) return '#FFCC00'; // Yellow for overweight
+    return '#FF6B6B'; // Red for obese
+  };
+
+  const calculateCalorieNeeds = () => {
+    if (!weight || !height || !gender || !dob || !activityLevel) return null;
+    
+    // Extract year from DOB to calculate age
+    const dobYear = parseInt(dob.split('.')[2]);
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - dobYear;
+    
+    // Base formula for BMR (Basal Metabolic Rate)
+    let bmr = 0;
+    
+    if (gender === 'Male') {
+      // Male: 10W + 6.25H - 5A + 5
+      bmr = 10 * parseFloat(weight) + 6.25 * parseFloat(height) - 5 * age + 5;
+    } else {
+      // Female: 10W + 6.25H - 5A - 161
+      bmr = 10 * parseFloat(weight) + 6.25 * parseFloat(height) - 5 * age - 161;
+    }
+    
+    // Apply activity multiplier
+    let tdee = 0; // Total Daily Energy Expenditure
+    switch (activityLevel) {
+      case 'sedentary':
+        tdee = bmr * 1.2;
+        break;
+      case 'light':
+        tdee = bmr * 1.375;
+        break;
+      case 'moderate':
+        tdee = bmr * 1.55;
+        break;
+      case 'very_active':
+        tdee = bmr * 1.725;
+        break;
+      case 'extra_active':
+        tdee = bmr * 1.9;
+        break;
+      default:
+        tdee = bmr * 1.2;
+    }
+    
+    return Math.round(tdee);
+  };
+
+  const showHelpModal = (title, content) => {
+    setHelpContent({ title, content });
+    setShowHelp(true);
+  };
+
+  const handleNext = async () => {
+    // Validate all fields
+    const isNameValid = validateName(name);
+    const isSurnameValid = validateSurname(surname);
+    const isGenderValid = validateGender(gender);
+    const isDobValid = validateDob(dob);
+    const isWeightValid = validateWeight(weight);
+    const isHeightValid = validateHeight(height);
+    const isGoalValid = validateGoal(goal);
+    const isActivityLevelValid = validateActivityLevel(activityLevel);
+
+    if (
+      isNameValid &&
+      isSurnameValid &&
+      isGenderValid &&
+      isDobValid &&
+      isWeightValid &&
+      isHeightValid &&
+      isGoalValid &&
+      isActivityLevelValid
+    ) {
+      setIsLoading(true);
+      
+      // Calculate health metrics
+      const bmi = calculateBMI();
+      const calories = calculateCalorieNeeds();
+      
+      try {
+        // Create profile data object
+        const profileData = {
+          userId,
+          firstName: name,
+          lastName: surname,
+          gender,
+          dateOfBirth: dob,
+          weight: parseFloat(weight),
+          height: parseFloat(height),
+          fitnessGoal: goal,
+          activityLevel,
+          bmi: parseFloat(bmi),
+          dailyCalories: calories,
+          email
+        };
+        
+        // If profile image selected, prepare it for upload
+        if (profileImage) {
+          profileData.profileImageUri = profileImage;
+        }
+        
+        // Call API to create profile
+        const response = await authService.createProfile(profileData);
+        
+        setIsLoading(false);
+        
+        if (response.success || response.profile) {
+          navigation.replace('Main', profileData);
+        } else {
+          throw new Error('Failed to create profile');
+        }
+      } catch (error) {
+        setIsLoading(false);
+        console.error('Profile creation error:', error);
+        
+        // Show appropriate error message
+        if (error.type === 'network') {
+          Alert.alert('Connection Error', 'Please check your internet connection and try again.');
+        } else {
+          Alert.alert(
+            'Profile Creation Failed', 
+            error.message || 'Unable to create your profile. Please try again later.'
+          );
+        }
+      }
+    } else {
+      // Scroll to the first error field
+      Keyboard.dismiss();
     }
   };
 
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
+  const bmi = calculateBMI();
+  const bmiCategory = getBMICategory(bmi);
+  const bmiColor = getBMIColor(bmi);
+  const calorieNeeds = calculateCalorieNeeds();
+
+  const handleChoosePhoto = () => {
+    setShowImageOptions(true);
+  };
+
+  const takePhoto = () => {
+    const options = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      saveToPhotos: true,
+    };
+
+    launchCamera(options, (response) => {
+      setShowImageOptions(false);
+      
+      if (response.didCancel) {
+        console.log('User cancelled camera');
+      } else if (response.errorCode) {
+        console.log('Camera Error: ', response.errorMessage);
+        Alert.alert('Camera Error', response.errorMessage);
+      } else if (response.assets && response.assets.length > 0) {
+        setProfileImage(response.assets[0].uri);
+      }
+    });
+  };
+
+  const chooseFromLibrary = () => {
+    const options = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+    };
+
+    launchImageLibrary(options, (response) => {
+      setShowImageOptions(false);
+      
+      if (response.didCancel) {
+        console.log('User cancelled image selection');
+      } else if (response.errorCode) {
+        console.log('ImagePicker Error: ', response.errorMessage);
+        Alert.alert('Image Selection Error', response.errorMessage);
+      } else if (response.assets && response.assets.length > 0) {
+        setProfileImage(response.assets[0].uri);
+      }
+    });
+  };
+
   return (
-    <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
-      {/* Illustration */}
-      <Image
-        source={require('../../../assets/images/gym_icon.png')}
-        style={styles.illustration}
-      />
-
-      {/* Heading */}
-      <Text style={styles.title}>Let's complete your profile</Text>
-      <Text style={styles.subtitle}>
-        It will help us to know more about you!
-      </Text>
-
-      {/* Name Input */}
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Your Name"
-        placeholderTextColor="#B8B8B8"
-        value={name}
-        onChangeText={setName}
-      />
-
-      {/* Surname Input */}
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Your Surname"
-        placeholderTextColor="#B8B8B8"
-        value={surname}
-        onChangeText={setSurname}
-      />
-
-      {/* Gender Dropdown */}
-      <Dropdown
-        style={styles.input}
-        placeholderStyle={styles.placeholderStyle}
-        selectedTextStyle={styles.selectedTextStyle}
-        data={genderOptions}
-        maxHeight={200}
-        labelField="label"
-        valueField="value"
-        placeholder="Choose Gender"
-        value={gender}
-        onChange={(item) => setGender(item.value)}
-      />
-
-      {/* Date Picker */}
-      <TouchableOpacity
-        onPress={() => setShowDatePicker(true)}
-        style={styles.input}
-      >
-        <Text style={dob ? styles.dateText : styles.placeholderStyle}>
-          {dob || 'Select Date of Birth'}
-        </Text>
-      </TouchableOpacity>
-      {showDatePicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode="date"
-          display="default"
-          onChange={onChangeDate}
-        />
-      )}
-
-      {/* Weight Input */}
-      <View style={styles.inlineInputContainer}>
-        <TextInput
-          style={styles.inlineInput}
-          placeholder="Your Weight"
-          placeholderTextColor="#B8B8B8"
-          keyboardType="numeric"
-          value={weight}
-          onChangeText={setWeight}
-        />
-        <Text style={styles.unit}>KG</Text>
-      </View>
-
-      {/* Height Input */}
-      <View style={styles.inlineInputContainer}>
-        <TextInput
-          style={styles.inlineInput}
-          placeholder="Your Height"
-          placeholderTextColor="#B8B8B8"
-          keyboardType="numeric"
-          value={height}
-          onChangeText={setHeight}
-        />
-        <Text style={styles.unit}>CM</Text>
-      </View>
-
-      {/* Error Message */}
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      {/* Next Button */}
-      <TouchableOpacity style={styles.button} onPress={handleNext}>
-        <LinearGradient
-          colors={['#8E44AD', '#A95CF1']}
-          style={styles.buttonGradient}
+    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+      <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidingView}
         >
-          <Text style={styles.buttonText}>Next</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </LinearGradient>
+          <SafeAreaView style={styles.safeArea}>
+            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+              <View style={styles.header}>
+                <Text style={styles.title}>Create Your Profile</Text>
+              </View>
+
+              {/* Profile Image Selection */}
+              <View style={styles.profileImageContainer}>
+                <TouchableOpacity style={styles.profileImageWrapper} onPress={handleChoosePhoto}>
+                  {profileImage ? (
+                    <Image source={{ uri: profileImage }} style={styles.profileImage} />
+                  ) : (
+                    <Image source={require('../../../assets/images/profile_pic.jpg')} style={styles.profileImage} />
+                  )}
+                  <View style={styles.editIconContainer}>
+                    <Text style={styles.editIcon}>📷</Text>
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.addPhotoText}>Add Profile Photo</Text>
+              </View>
+
+              {/* Personal Information Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Personal Information</Text>
+                
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={[styles.input, nameError ? styles.inputError : null]}
+                    placeholder="First Name"
+                    value={name}
+                    onChangeText={setName}
+                    onBlur={() => validateName(name)}
+                  />
+                  {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={[styles.input, surnameError ? styles.inputError : null]}
+                    placeholder="Last Name"
+                    value={surname}
+                    onChangeText={setSurname}
+                    onBlur={() => validateSurname(surname)}
+                  />
+                  {surnameError ? <Text style={styles.errorText}>{surnameError}</Text> : null}
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <Dropdown
+                    style={[styles.dropdown, genderError ? styles.inputError : null]}
+                    placeholder="Select Gender"
+                    placeholderStyle={styles.placeholderStyle}
+                    selectedTextStyle={styles.selectedTextStyle}
+                    data={genderOptions}
+                    maxHeight={200}
+                    labelField="label"
+                    valueField="value"
+                    value={gender}
+                    onChange={(item) => {
+                      setGender(item.value);
+                      validateGender(item.value);
+                    }}
+                  />
+                  {genderError ? <Text style={styles.errorText}>{genderError}</Text> : null}
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={[styles.input, dobError ? styles.inputError : null]}
+                    placeholder="Date of Birth (DD.MM.YYYY)"
+                    value={dob}
+                    onChangeText={setDob}
+                    keyboardType="numeric"
+                    onBlur={() => validateDob(dob)}
+                  />
+                  {dobError ? <Text style={styles.errorText}>{dobError}</Text> : null}
+                </View>
+              </View>
+
+              {/* Body Metrics Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Body Metrics</Text>
+                
+                <View style={styles.measurementRow}>
+                  <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
+                    <TextInput
+                      style={[styles.input, weightError ? styles.inputError : null]}
+                      placeholder="Weight"
+                      value={weight}
+                      onChangeText={(text) => {
+                        setWeight(text);
+                        if (weightError) validateWeight(text);
+                      }}
+                      keyboardType="numeric"
+                      onBlur={() => validateWeight(weight)}
+                    />
+                    <Text style={styles.measurementUnit}>KG</Text>
+                    {weightError ? <Text style={styles.errorText}>{weightError}</Text> : null}
+                  </View>
+                  
+                  <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
+                    <TextInput
+                      style={[styles.input, heightError ? styles.inputError : null]}
+                      placeholder="Height"
+                      value={height}
+                      onChangeText={(text) => {
+                        setHeight(text);
+                        if (heightError) validateHeight(text);
+                      }}
+                      keyboardType="numeric"
+                      onBlur={() => validateHeight(height)}
+                    />
+                    <Text style={styles.measurementUnit}>CM</Text>
+                    {heightError ? <Text style={styles.errorText}>{heightError}</Text> : null}
+                  </View>
+                </View>
+                
+                {/* BMI Display if both height and weight are provided */}
+                {bmi && (
+                  <View style={styles.bmiContainer}>
+                    <View style={styles.bmiHeader}>
+                      <Text style={styles.bmiTitle}>Your BMI</Text>
+                      <TouchableOpacity
+                        onPress={() =>
+                          showHelpModal(
+                            'Body Mass Index (BMI)',
+                            'BMI is a measure of body fat based on height and weight. A healthy BMI range is between 18.5 and 24.9.\n\n• Below 18.5: Underweight\n• 18.5-24.9: Normal weight\n• 25-29.9: Overweight\n• 30 and above: Obese'
+                          )
+                        }
+                      >
+                        <Text style={styles.bmiInfo}>ⓘ</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.bmiValueContainer}>
+                      <Text style={[styles.bmiValue, { color: bmiColor }]}>{bmi}</Text>
+                      <Text style={[styles.bmiCategory, { color: bmiColor }]}>{bmiCategory}</Text>
+                    </View>
+                    <View style={styles.bmiScaleContainer}>
+                      <View style={styles.bmiScale}>
+                        <View style={styles.bmiRange1} />
+                        <View style={styles.bmiRange2} />
+                        <View style={styles.bmiRange3} />
+                        <View style={styles.bmiRange4} />
+                      </View>
+                      <View style={styles.bmiMarkers}>
+                        <Text style={styles.bmiMarker}>18.5</Text>
+                        <Text style={styles.bmiMarker}>25</Text>
+                        <Text style={styles.bmiMarker}>30</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              {/* Fitness Goals Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Fitness Goals</Text>
+                
+                <View style={styles.inputContainer}>
+                  <Dropdown
+                    style={[styles.dropdown, goalError ? styles.inputError : null]}
+                    placeholder="Select Your Goal"
+                    placeholderStyle={styles.placeholderStyle}
+                    selectedTextStyle={styles.selectedTextStyle}
+                    data={fitnessGoals}
+                    maxHeight={200}
+                    labelField="label"
+                    valueField="value"
+                    value={goal}
+                    onChange={(item) => {
+                      setGoal(item.value);
+                      validateGoal(item.value);
+                    }}
+                  />
+                  {goalError ? <Text style={styles.errorText}>{goalError}</Text> : null}
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <Dropdown
+                    style={[styles.dropdown, activityLevelError ? styles.inputError : null]}
+                    placeholder="Select Activity Level"
+                    placeholderStyle={styles.placeholderStyle}
+                    selectedTextStyle={styles.selectedTextStyle}
+                    data={activityLevels}
+                    maxHeight={200}
+                    labelField="label"
+                    valueField="value"
+                    value={activityLevel}
+                    onChange={(item) => {
+                      setActivityLevel(item.value);
+                      validateActivityLevel(item.value);
+                    }}
+                  />
+                  {activityLevelError ? <Text style={styles.errorText}>{activityLevelError}</Text> : null}
+                </View>
+                
+                {/* Calorie Needs Display */}
+                {calorieNeeds && (
+                  <View style={styles.caloriesContainer}>
+                    <View style={styles.caloriesHeader}>
+                      <Text style={styles.caloriesTitle}>Estimated Daily Calories</Text>
+                      <TouchableOpacity
+                        onPress={() =>
+                          showHelpModal(
+                            'Daily Calorie Needs',
+                            'This is an estimate of how many calories you need each day to maintain your current weight, based on your age, gender, height, weight, and activity level.\n\nTo lose weight: Consume fewer calories than this number.\nTo gain weight: Consume more calories than this number.'
+                          )
+                        }
+                      >
+                        <Text style={styles.caloriesInfo}>ⓘ</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.caloriesValue}>{calorieNeeds} kcal</Text>
+                    <Text style={styles.caloriesNote}>
+                      {goal === 'lose_weight'
+                        ? `Target for weight loss: ${calorieNeeds - 500} kcal`
+                        : goal === 'build_muscle'
+                        ? `Target for muscle gain: ${calorieNeeds + 300} kcal`
+                        : 'Adjust based on your specific goals'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Next Button */}
+              <TouchableOpacity 
+                style={styles.button} 
+                onPress={handleNext}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.buttonText}>Create Profile</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+
+        {/* Help Modal */}
+        <Modal
+          visible={showHelp}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowHelp(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowHelp(false)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>{helpContent.title}</Text>
+                  <Text style={styles.modalText}>{helpContent.content}</Text>
+                  <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={() => setShowHelp(false)}
+                  >
+                    <Text style={styles.modalButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* Image Selection Modal */}
+        <Modal
+          visible={showImageOptions}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowImageOptions(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowImageOptions(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.photoOptionsContainer}>
+                <Text style={styles.photoOptionsTitle}>Choose Profile Photo</Text>
+                
+                <TouchableOpacity style={styles.photoOption} onPress={takePhoto}>
+                  <Text style={styles.photoOptionIcon}>📸</Text>
+                  <Text style={styles.photoOptionText}>Take Photo</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.photoOption} onPress={chooseFromLibrary}>
+                  <Text style={styles.photoOptionIcon}>🖼️</Text>
+                  <Text style={styles.photoOptionText}>Choose from Gallery</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.photoOption, styles.photoOptionCancel]} 
+                  onPress={() => setShowImageOptions(false)}
+                >
+                  <Text style={[styles.photoOptionText, styles.photoOptionTextCancel]}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      </LinearGradient>
+    </TouchableWithoutFeedback>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, justifyContent: 'center' },
-  illustration: {
-    width: 150,
-    height: 150,
-    alignSelf: 'center',
+  container: {
+    flex: 1,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  header: {
+    alignItems: 'center',
+    marginTop: 20,
     marginBottom: 20,
   },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
-  subtitle: {
-    fontSize: 14,
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
     color: '#fff',
     textAlign: 'center',
+  },
+  profileImageContainer: {
+    alignItems: 'center',
     marginBottom: 20,
   },
-  input: {
-    width: '100%',
-    height: 50,
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    marginBottom: 15,
-    justifyContent: 'center',
+  profileImageWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  placeholderStyle: { color: '#B8B8B8', fontSize: 16 },
-  dateText: { fontSize: 16, color: '#333' },
-  inlineInputContainer: {
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 15,
+    padding: 2,
+  },
+  editIcon: {
+    fontSize: 18,
+    color: '#fff',
+  },
+  addPhotoText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#fff',
+  },
+  section: {
+    marginBottom: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  inputContainer: {
+    marginBottom: 12,
+    position: 'relative',
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    height: 50,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    color: '#333',
+  },
+  inputError: {
+    borderColor: '#FF6B6B',
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    marginTop: 3,
+    marginLeft: 8,
+  },
+  dropdown: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 50,
+  },
+  placeholderStyle: {
+    fontSize: 16,
+    color: '#999',
+  },
+  selectedTextStyle: {
+    fontSize: 16,
+    color: '#333',
+  },
+  measurementRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  measurementUnit: {
+    position: 'absolute',
+    right: 16,
+    top: 14,
+    fontSize: 16,
+    color: '#A95CF1',
+    fontWeight: 'bold',
+  },
+  bmiContainer: {
+    marginTop: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 8,
+  },
+  bmiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  bmiTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  bmiInfo: {
+    fontSize: 18,
+    color: '#A95CF1',
+  },
+  bmiValueContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    marginBottom: 15,
-    paddingHorizontal: 20,
-    height: 50,
+    marginBottom: 16,
   },
-  inlineInput: { flex: 1, fontSize: 16 },
-  unit: { fontSize: 16, color: '#A95CF1', fontWeight: 'bold' },
-  errorText: { color: 'red', textAlign: 'center', marginBottom: 10 },
+  bmiValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginRight: 10,
+  },
+  bmiCategory: {
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  bmiScaleContainer: {
+    marginTop: 8,
+  },
+  bmiScale: {
+    height: 6,
+    flexDirection: 'row',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  bmiRange1: {
+    flex: 18.5,
+    backgroundColor: '#64B5F6', // Blue for underweight
+  },
+  bmiRange2: {
+    flex: 6.5,
+    backgroundColor: '#4CD964', // Green for normal
+  },
+  bmiRange3: {
+    flex: 5,
+    backgroundColor: '#FFCC00', // Yellow for overweight
+  },
+  bmiRange4: {
+    flex: 10,
+    backgroundColor: '#FF6B6B', // Red for obese
+  },
+  bmiMarkers: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  bmiMarker: {
+    fontSize: 12,
+    color: '#666',
+  },
+  caloriesContainer: {
+    marginTop: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 10,
+    padding: 16,
+  },
+  caloriesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  caloriesTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  caloriesInfo: {
+    fontSize: 18,
+    color: '#A95CF1',
+  },
+  caloriesValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#A95CF1',
+    marginBottom: 4,
+  },
+  caloriesNote: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
   button: {
-    width: '100%',
-    height: 50,
-    borderRadius: 25,
-    marginVertical: 10,
-  },
-  buttonGradient: {
-    flex: 1,
+    backgroundColor: '#8E44AD',
+    borderRadius: 30,
+    height: 55,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 25,
+    marginVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#A95CF1',
+    marginBottom: 12,
+  },
+  modalText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#333',
+    marginBottom: 20,
+  },
+  modalButton: {
+    backgroundColor: '#A95CF1',
+    borderRadius: 30,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  photoOptionsContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
+  photoOptionsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  photoOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  photoOptionIcon: {
+    fontSize: 24,
+    marginRight: 15,
+  },
+  photoOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  photoOptionCancel: {
+    borderBottomWidth: 0,
+    marginTop: 10,
+  },
+  photoOptionTextCancel: {
+    color: '#FF3B30',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    width: '100%',
+  },
 });
 
 export default CreateProfileScreen;
