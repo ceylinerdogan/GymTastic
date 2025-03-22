@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, Button, StyleSheet, Platform } from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
@@ -13,9 +14,25 @@ const PoseCamera = ({ onFrameProcessed, onCameraReady, onError }) => {
   const devices = useCameraDevices();
   const cameraRef = useRef(null);
   const initTimeoutRef = useRef(null);
+=======
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, PermissionsAndroid, Platform } from 'react-native';
+import { Camera, useCameraDevice } from 'react-native-vision-camera';
+import { useFrameProcessor } from 'react-native-vision-camera';
+import runOnJS from 'react-native-reanimated';
+
+const PoseCamera = () => {
+  const [cameraPermission, setCameraPermission] = useState(false);
+  const device = useCameraDevice('front');
+  // const frameProcessor = useFrameProcessor((frame) => {
+  //   'worklet'
+  //   console.log(`Frame: ${frame.width}x${frame.height} (${frame.pixelFormat})`)
+  // }, [])
+>>>>>>> 5199b7f4d2cc795f6f64fecb6ae2c6ffc661c5ba
 
   // Check if running on an emulator
   useEffect(() => {
+<<<<<<< HEAD
     try {
       // Check common emulator characteristics
       const isEmu = Platform.OS === 'android' && (
@@ -167,15 +184,54 @@ const PoseCamera = ({ onFrameProcessed, onCameraReady, onError }) => {
             }
           }} 
         />
+=======
+    const requestPermissions = async () => {
+      let hasPermission = false;
+
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Kamera İzni Gerekli',
+            message: 'Bu uygulama kameraya erişim gerektiriyor.',
+            buttonNeutral: 'Daha Sonra',
+            buttonNegative: 'İptal',
+            buttonPositive: 'Tamam',
+          }
+        );
+        hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        const status = await Camera.requestCameraPermission();
+        hasPermission = status === 'authorized';
+      }
+
+      setCameraPermission(hasPermission);
+    };
+
+    requestPermissions();
+  }, []);
+
+  if (!cameraPermission) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.warningText}>Kamera izni verilmedi. Lütfen izin verin.</Text>
+>>>>>>> 5199b7f4d2cc795f6f64fecb6ae2c6ffc661c5ba
       </View>
     );
   }
 
+<<<<<<< HEAD
   // Show loading state while waiting for camera
   if (!isEmulator && loading) {
     return (
       <View style={styles.container}>
         <Text style={styles.loadingText}>Initializing camera...</Text>
+=======
+  if (!device) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.warningText}>Kamera bulunamadı veya yükleniyor...</Text>
+>>>>>>> 5199b7f4d2cc795f6f64fecb6ae2c6ffc661c5ba
       </View>
     );
   }
@@ -208,6 +264,7 @@ const PoseCamera = ({ onFrameProcessed, onCameraReady, onError }) => {
   // Real camera view
   return (
     <View style={styles.container}>
+<<<<<<< HEAD
       {cameraDevice && (
         <Camera
           ref={cameraRef}
@@ -217,6 +274,18 @@ const PoseCamera = ({ onFrameProcessed, onCameraReady, onError }) => {
           photo={true}
         />
       )}
+=======
+      <Camera 
+        style={StyleSheet.absoluteFill} 
+        device={device} 
+        isActive={true} 
+        // frameProcessor={frameProcessor}
+        // frameProcessorFps={5}
+        />
+      <View style={styles.overlay}>
+        <Text style={styles.infoText}>Kamera Aktif</Text>
+      </View>
+>>>>>>> 5199b7f4d2cc795f6f64fecb6ae2c6ffc661c5ba
     </View>
   );
 };
@@ -234,6 +303,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     margin: 20,
   },
+<<<<<<< HEAD
   loadingText: {
     color: 'white',
     fontSize: 18,
@@ -244,6 +314,13 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#333',
     justifyContent: 'center',
+=======
+  overlay: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+>>>>>>> 5199b7f4d2cc795f6f64fecb6ae2c6ffc661c5ba
     alignItems: 'center',
   },
   mockCameraText: {
