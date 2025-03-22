@@ -2,10 +2,13 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, Button, StyleSheet, Platform } from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
 
+//comment
 const PoseCamera = ({ onFrameProcessed, onCameraReady, onError }) => {
   const [hasPermission, setHasPermission] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [isEmulator, setIsEmulator] = useState(false);
+
+  
   const [loading, setLoading] = useState(true);
   const devices = useCameraDevices();
   const cameraRef = useRef(null);
