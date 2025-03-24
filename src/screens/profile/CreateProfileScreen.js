@@ -19,7 +19,9 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { Dropdown } from 'react-native-element-dropdown';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { authService } from '../../services/api';
+import { profileService } from '../../services';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from '../../services';
 
 // Fitness goal options
 const fitnessGoals = [
@@ -49,9 +51,7 @@ const genderOptions = [
 const CreateProfileScreen = ({ navigation, route }) => {
   // Get email and userId from navigation params if available
   const { email, userId } = route.params || {};
-  
-  const [name, setName] = useState('');
-  const [surname, setSurname] = useState('');
+
   const [gender, setGender] = useState(null);
   const [dob, setDob] = useState('');
   const [weight, setWeight] = useState('');
@@ -65,8 +65,6 @@ const CreateProfileScreen = ({ navigation, route }) => {
   const [showImageOptions, setShowImageOptions] = useState(false);
 
   // Form validation states
-  const [nameError, setNameError] = useState('');
-  const [surnameError, setSurnameError] = useState('');
   const [genderError, setGenderError] = useState('');
   const [dobError, setDobError] = useState('');
   const [weightError, setWeightError] = useState('');
@@ -77,8 +75,6 @@ const CreateProfileScreen = ({ navigation, route }) => {
   // Clear fields when component mounts
   useEffect(() => {
     // Reset all form fields to ensure we don't show cached data
-    setName('');
-    setSurname('');
     setGender(null);
     setDob('');
     setWeight('');
@@ -86,27 +82,9 @@ const CreateProfileScreen = ({ navigation, route }) => {
     setGoal(null);
     setActivityLevel(null);
     setProfileImage(null);
-    
+
     console.log('CreateProfile: Cleared all fields, using userId:', userId);
   }, [userId]);
-
-  const validateName = (name) => {
-    if (!name.trim()) {
-      setNameError('First name is required');
-      return false;
-    }
-    setNameError('');
-    return true;
-  };
-
-  const validateSurname = (surname) => {
-    if (!surname.trim()) {
-      setSurnameError('Last name is required');
-      return false;
-    }
-    setSurnameError('');
-    return true;
-  };
 
   const validateGender = (gender) => {
     if (!gender) {
@@ -207,15 +185,15 @@ const CreateProfileScreen = ({ navigation, route }) => {
 
   const calculateCalorieNeeds = () => {
     if (!weight || !height || !gender || !dob || !activityLevel) return null;
-    
+
     // Extract year from DOB to calculate age
     const dobYear = parseInt(dob.split('.')[2]);
     const currentYear = new Date().getFullYear();
     const age = currentYear - dobYear;
-    
+
     // Base formula for BMR (Basal Metabolic Rate)
     let bmr = 0;
-    
+
     if (gender === 'Male') {
       // Male: 10W + 6.25H - 5A + 5
       bmr = 10 * parseFloat(weight) + 6.25 * parseFloat(height) - 5 * age + 5;
@@ -223,7 +201,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
       // Female: 10W + 6.25H - 5A - 161
       bmr = 10 * parseFloat(weight) + 6.25 * parseFloat(height) - 5 * age - 161;
     }
-    
+
     // Apply activity multiplier
     let tdee = 0; // Total Daily Energy Expenditure
     switch (activityLevel) {
@@ -245,7 +223,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
       default:
         tdee = bmr * 1.2;
     }
-    
+
     return Math.round(tdee);
   };
 
@@ -256,73 +234,101 @@ const CreateProfileScreen = ({ navigation, route }) => {
 
   const handleNext = async () => {
     // Validate all fields
-    const isNameValid = validateName(name);
-    const isSurnameValid = validateSurname(surname);
     const isGenderValid = validateGender(gender);
     const isDobValid = validateDob(dob);
     const isWeightValid = validateWeight(weight);
     const isHeightValid = validateHeight(height);
     const isGoalValid = validateGoal(goal);
-    const isActivityLevelValid = validateActivityLevel(activityLevel);
+    const isActivityValid = validateActivityLevel(activityLevel);
 
-    if (
-      isNameValid &&
-      isSurnameValid &&
-      isGenderValid &&
-      isDobValid &&
-      isWeightValid &&
-      isHeightValid &&
-      isGoalValid &&
-      isActivityLevelValid
-    ) {
+    const isFormValid = isGenderValid && isDobValid &&
+      isWeightValid && isHeightValid && isGoalValid && isActivityValid;
+
+    if (isFormValid) {
       setIsLoading(true);
-      
-      // Calculate health metrics
-      const bmi = calculateBMI();
-      const calories = calculateCalorieNeeds();
-      
+      dismissKeyboard();
+
       try {
-        // Create profile data object
-        const profileData = {
-          userId,
-          firstName: name,
-          lastName: surname,
-          gender,
-          dateOfBirth: dob,
-          weight: parseFloat(weight),
-          height: parseFloat(height),
-          fitnessGoal: goal,
-          activityLevel,
-          bmi: parseFloat(bmi),
-          dailyCalories: calories,
-          email
-        };
-        
-        // If profile image selected, prepare it for upload
-        if (profileImage) {
-          profileData.profileImageUri = profileImage;
+        // Get the user data from AsyncStorage
+        const userData = await AsyncStorage.getItem('user_data');
+        const user = userData ? JSON.parse(userData) : null;
+
+        if (!user) {
+          throw new Error('User information not found. Please register or login again.');
         }
-        
+
+        // Check if user still exists in the database
+        const userExists = await authService.checkUserExists(user.userID);
+
+        if (!userExists.exists) {
+          // User has been deleted from database
+          await authService.clearUserFromStorage();
+          setIsLoading(false);
+
+          Alert.alert(
+            'Account Error',
+            'Your account no longer exists in our system. You may need to register again.',
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.replace('Login')
+              }
+            ]
+          );
+          return;
+        }
+
+        // Create profile data object using the format required by the backend
+        const profileData = {
+          userID: user.userID,  // This should come from registration response
+          gender: gender,
+          height: parseFloat(height),
+          weight: parseFloat(weight),
+          profilepic: profileImage || '', // Ensure empty string if no image selected
+          birth_date: dob,
+          fitness_goal: goal,
+          activity_level: activityLevel
+        };
+
+        console.log('Sending profile data:', profileData);
+
         // Call API to create profile
-        const response = await authService.createProfile(profileData);
-        
+        const response = await profileService.createProfile(profileData);
+
         setIsLoading(false);
-        
-        if (response.success || response.profile) {
-          navigation.replace('Main', profileData);
+
+        if (response.success) {
+          // Update the user data with profile info
+          user.hasProfile = true;
+          await AsyncStorage.setItem('user_data', JSON.stringify(user));
+
+          // Navigate to main screen after successful profile creation
+          navigation.replace('Main');
         } else {
-          throw new Error('Failed to create profile');
+          throw new Error(response.message || 'Failed to create profile');
         }
       } catch (error) {
         setIsLoading(false);
         console.error('Profile creation error:', error);
-        
+
         // Show appropriate error message
         if (error.type === 'network') {
           Alert.alert('Connection Error', 'Please check your internet connection and try again.');
+        } else if (error.message && error.message.includes('account no longer exists')) {
+          // User account was deleted
+          Alert.alert(
+            'Account Error',
+            'Your account no longer exists in our system. You may need to register again.',
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.replace('Login')
+              }
+            ]
+          );
         } else {
           Alert.alert(
-            'Profile Creation Failed', 
+            'Profile Creation Failed',
             error.message || 'Unable to create your profile. Please try again later.'
           );
         }
@@ -356,7 +362,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
 
     launchCamera(options, (response) => {
       setShowImageOptions(false);
-      
+
       if (response.didCancel) {
         console.log('User cancelled camera');
       } else if (response.errorCode) {
@@ -377,7 +383,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
 
     launchImageLibrary(options, (response) => {
       setShowImageOptions(false);
-      
+
       if (response.didCancel) {
         console.log('User cancelled image selection');
       } else if (response.errorCode) {
@@ -408,7 +414,10 @@ const CreateProfileScreen = ({ navigation, route }) => {
                   {profileImage ? (
                     <Image source={{ uri: profileImage }} style={styles.profileImage} />
                   ) : (
-                    <Image source={require('../../../assets/images/profile_pic.jpg')} style={styles.profileImage} />
+                    <Image
+                      source={require('../../../assets/images/emptyProfilePic.jpg')}
+                      style={styles.profileImage}
+                    />
                   )}
                   <View style={styles.editIconContainer}>
                     <Text style={styles.editIcon}>📷</Text>
@@ -420,31 +429,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
               {/* Personal Information Section */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Personal Information</Text>
-                
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={[styles.input, nameError ? styles.inputError : null]}
-                    placeholder="First Name"
-                    placeholderTextColor="#999"
-                    value={name}
-                    onChangeText={setName}
-                    onBlur={() => validateName(name)}
-                  />
-                  {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
-                </View>
-                
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={[styles.input, surnameError ? styles.inputError : null]}
-                    placeholder="Last Name"
-                    placeholderTextColor="#999"
-                    value={surname}
-                    onChangeText={setSurname}
-                    onBlur={() => validateSurname(surname)}
-                  />
-                  {surnameError ? <Text style={styles.errorText}>{surnameError}</Text> : null}
-                </View>
-                
+
                 <View style={styles.inputContainer}>
                   <Dropdown
                     style={[styles.dropdown, genderError ? styles.inputError : null]}
@@ -463,7 +448,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                   />
                   {genderError ? <Text style={styles.errorText}>{genderError}</Text> : null}
                 </View>
-                
+
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={[styles.input, dobError ? styles.inputError : null]}
@@ -481,7 +466,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
               {/* Body Metrics Section */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Body Metrics</Text>
-                
+
                 <View style={styles.measurementRow}>
                   <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
                     <TextInput
@@ -499,7 +484,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                     <Text style={styles.measurementUnit}>KG</Text>
                     {weightError ? <Text style={styles.errorText}>{weightError}</Text> : null}
                   </View>
-                  
+
                   <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
                     <TextInput
                       style={[styles.input, heightError ? styles.inputError : null]}
@@ -517,7 +502,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                     {heightError ? <Text style={styles.errorText}>{heightError}</Text> : null}
                   </View>
                 </View>
-                
+
                 {/* BMI Display if both height and weight are provided */}
                 {bmi && (
                   <View style={styles.bmiContainer}>
@@ -558,7 +543,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
               {/* Fitness Goals Section */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Fitness Goals</Text>
-                
+
                 <View style={styles.inputContainer}>
                   <Dropdown
                     style={[styles.dropdown, goalError ? styles.inputError : null]}
@@ -577,7 +562,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                   />
                   {goalError ? <Text style={styles.errorText}>{goalError}</Text> : null}
                 </View>
-                
+
                 <View style={styles.inputContainer}>
                   <Dropdown
                     style={[styles.dropdown, activityLevelError ? styles.inputError : null]}
@@ -596,7 +581,7 @@ const CreateProfileScreen = ({ navigation, route }) => {
                   />
                   {activityLevelError ? <Text style={styles.errorText}>{activityLevelError}</Text> : null}
                 </View>
-                
+
                 {/* Calorie Needs Display */}
                 {calorieNeeds && (
                   <View style={styles.caloriesContainer}>
@@ -618,16 +603,16 @@ const CreateProfileScreen = ({ navigation, route }) => {
                       {goal === 'lose_weight'
                         ? `Target for weight loss: ${calorieNeeds - 500} kcal`
                         : goal === 'build_muscle'
-                        ? `Target for muscle gain: ${calorieNeeds + 300} kcal`
-                        : 'Adjust based on your specific goals'}
+                          ? `Target for muscle gain: ${calorieNeeds + 300} kcal`
+                          : 'Adjust based on your specific goals'}
                     </Text>
                   </View>
                 )}
               </View>
 
               {/* Next Button */}
-              <TouchableOpacity 
-                style={styles.button} 
+              <TouchableOpacity
+                style={styles.button}
                 onPress={handleNext}
                 disabled={isLoading}
               >
@@ -677,19 +662,19 @@ const CreateProfileScreen = ({ navigation, route }) => {
             <View style={styles.modalOverlay}>
               <View style={styles.photoOptionsContainer}>
                 <Text style={styles.photoOptionsTitle}>Choose Profile Photo</Text>
-                
+
                 <TouchableOpacity style={styles.photoOption} onPress={takePhoto}>
                   <Text style={styles.photoOptionIcon}>📸</Text>
                   <Text style={styles.photoOptionText}>Take Photo</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity style={styles.photoOption} onPress={chooseFromLibrary}>
                   <Text style={styles.photoOptionIcon}>🖼️</Text>
                   <Text style={styles.photoOptionText}>Choose from Gallery</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.photoOption, styles.photoOptionCancel]} 
+
+                <TouchableOpacity
+                  style={[styles.photoOption, styles.photoOptionCancel]}
                   onPress={() => setShowImageOptions(false)}
                 >
                   <Text style={[styles.photoOptionText, styles.photoOptionTextCancel]}>Cancel</Text>
@@ -1015,6 +1000,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     width: '100%',
+  },
+  placeholderImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E1E1E1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profilePlaceholderImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
 });
 

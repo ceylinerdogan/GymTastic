@@ -14,7 +14,7 @@ import {
   Alert
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { workoutService } from '../../services/api';
+import { workoutService } from '../../services';
 
 const { width } = Dimensions.get('window');
 

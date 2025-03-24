@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "192945878015",
+    "project_id": "gym-tasticc",
+    "storage_bucket": "gym-tasticc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:192945878015:android:10c1d2f778189434a6edca",
+        "android_client_info": {
+          "package_name": "com.gymtastic"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFiJi2K8LdqUosW7pthw_zoFcbGb3jpW0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

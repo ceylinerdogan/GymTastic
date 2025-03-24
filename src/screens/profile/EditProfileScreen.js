@@ -19,7 +19,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import { Dropdown } from 'react-native-element-dropdown';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { authService } from '../../services/api';
+import { profileService } from '../../services';
+import RNFS from 'react-native-fs';
 
 // Request camera permission on Android
 const requestCameraPermission = async () => {
@@ -174,7 +175,7 @@ const EditProfileScreen = ({ navigation, route }) => {
     const options = {
       mediaType: 'photo',
       quality: 0.8,
-      includeBase64: false,
+      includeBase64: true,
       saveToPhotos: true,
     };
 
@@ -188,8 +189,14 @@ const EditProfileScreen = ({ navigation, route }) => {
         console.log('Camera Error: ', result.errorMessage);
         Alert.alert('Camera Error', result.errorMessage);
       } else if (result.assets && result.assets.length > 0) {
-        console.log('Image selected:', result.assets[0].uri);
-        setProfileImage(result.assets[0].uri);
+        const asset = result.assets[0];
+        console.log('Image captured:', asset.uri);
+        
+        if (asset.base64) {
+          setProfileImage(`data:image/jpeg;base64,${asset.base64}`);
+        } else {
+          setProfileImage(asset.uri);
+        }
       }
     } catch (error) {
       setShowImageOptions(false);
@@ -202,7 +209,7 @@ const EditProfileScreen = ({ navigation, route }) => {
     const options = {
       mediaType: 'photo',
       quality: 0.8,
-      includeBase64: false,
+      includeBase64: true,
     };
 
     try {
@@ -215,8 +222,14 @@ const EditProfileScreen = ({ navigation, route }) => {
         console.log('ImagePicker Error: ', result.errorMessage);
         Alert.alert('Image Selection Error', result.errorMessage);
       } else if (result.assets && result.assets.length > 0) {
-        console.log('Image selected:', result.assets[0].uri);
-        setProfileImage(result.assets[0].uri);
+        const asset = result.assets[0];
+        console.log('Image selected:', asset.uri);
+        
+        if (asset.base64) {
+          setProfileImage(`data:image/jpeg;base64,${asset.base64}`);
+        } else {
+          setProfileImage(asset.uri);
+        }
       }
     } catch (error) {
       setShowImageOptions(false);
@@ -236,6 +249,29 @@ const EditProfileScreen = ({ navigation, route }) => {
     }
   };
 
+  const convertImageToBase64 = async (uri) => {
+    try {
+      if (!uri) return null;
+      
+      if (uri.startsWith('data:image')) {
+        return uri;
+      }
+      
+      const base64Data = await RNFS.readFile(uri, 'base64');
+      if (!base64Data) {
+        throw new Error('Failed to read image file');
+      }
+      
+      const extension = uri.split('.').pop().toLowerCase();
+      const mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
+      
+      return `data:${mimeType};base64,${base64Data}`;
+    } catch (error) {
+      console.error('Error converting image to base64:', error);
+      throw error;
+    }
+  };
+
   const handleSaveProfile = async () => {
     // Validate required fields
     const isNameValid = validateName(profileName);
@@ -247,32 +283,57 @@ const EditProfileScreen = ({ navigation, route }) => {
       setIsLoading(true);
       
       try {
-        // Get current user ID
-        const userId = await AsyncStorage.getItem('current_user_id');
+        // Get current user ID from user_data in AsyncStorage
+        const userData = await AsyncStorage.getItem('user_data');
         
-        if (!userId) {
-          throw new Error('User ID not found');
+        if (!userData) {
+          throw new Error('User data not found');
         }
         
-        console.log('About to update profile for user:', userId);
-        console.log('Profile image to save:', profileImage);
+        const user = JSON.parse(userData);
+        if (!user.userID) {
+          throw new Error('User ID not found in stored data');
+        }
         
-        // Create profile update data
+        console.log('About to update profile for user:', user.userID);
+        
+        // Create profile update data with field names matching the backend API
         const profileData = {
-          userId,
-          firstName: profileName,
-          lastName: profileSurname,
-          gender: profileGender,
-          dateOfBirth: profileDob,
-          weight: parseFloat(profileWeight),
-          height: parseFloat(profileHeight),
-          fitnessGoal: profileGoal,
-          activityLevel: profileActivityLevel,
-          profileImageUri: profileImage, // Always include the image, whether changed or not
+          userID: user.userID,
+          full_name: `${profileName} ${profileSurname}`.trim(),
+          gender: profileGender || '',
+          birth_date: profileDob || '',
+          weight: profileWeight ? parseFloat(profileWeight) : 0,
+          height: profileHeight ? parseFloat(profileHeight) : 0,
+          fitness_goal: profileGoal || '',
+          activity_level: profileActivityLevel || ''
         };
         
-        // Update profile using authService
-        const response = await authService.updateProfile(profileData);
+        // Handle profile image conversion if it's a file URI
+        if (profileImage) {
+          try {
+            if (profileImage.startsWith('file:') || profileImage.startsWith('content:')) {
+              console.log('Converting image file to base64...');
+              const base64Image = await convertImageToBase64(profileImage);
+              profileData.profilepic = base64Image;
+            } else if (profileImage.startsWith('data:image')) {
+              // Already in base64 format
+              profileData.profilepic = profileImage;
+            }
+          } catch (imageError) {
+            console.error('Failed to process image:', imageError);
+            Alert.alert(
+              'Image Processing Error',
+              'There was a problem processing your profile image. The profile will be updated without the image.',
+              [{ text: 'OK' }]
+            );
+          }
+        }
+        
+        console.log('Sending profile update data with image included:', profileData.profilepic ? 'Yes' : 'No');
+        
+        // Update profile using profileService
+        const response = await profileService.updateProfile(user.userID, profileData);
         
         if (response.success) {
           console.log('Profile updated successfully', response.profile);
@@ -290,13 +351,13 @@ const EditProfileScreen = ({ navigation, route }) => {
             ]
           );
         } else {
-          throw new Error('Failed to update profile');
+          throw new Error(response.message || 'Failed to update profile');
         }
       } catch (error) {
         console.error('Error updating profile:', error);
         Alert.alert(
           'Update Failed',
-          error.message || 'Failed to update profile. Please try again.'
+          error.message || 'Invalid data provided. Please check your form inputs.'
         );
       } finally {
         setIsLoading(false);
@@ -319,7 +380,7 @@ const EditProfileScreen = ({ navigation, route }) => {
                 <Image source={{ uri: profileImage }} style={styles.profileImage} />
               ) : (
                 <Image 
-                  source={require('../../../assets/images/profile_pic.jpg')} 
+                  source={require('../../../assets/images/emptyProfilePic.jpg')} 
                   style={styles.profileImage}
                 />
               )}
@@ -328,6 +389,9 @@ const EditProfileScreen = ({ navigation, route }) => {
               </View>
             </TouchableOpacity>
             <Text style={styles.changePhotoText}>Change Profile Photo</Text>
+            <Text style={styles.photoHelpText}>
+              Image will be converted to base64 format. Max recommended size: 2MB.
+            </Text>
           </View>
 
           {/* Form Sections */}
@@ -557,6 +621,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: '#fff',
     fontSize: 16,
+  },
+  photoHelpText: {
+    marginTop: 8,
+    color: '#fff',
+    fontSize: 12,
   },
   formSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',

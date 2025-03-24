@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,32 +16,31 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
-import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
-import { authService } from '../../services/api';
+import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
+import authService from '../../services/authService';
+import profileService from '../../services/profileService';
 
 const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
   React.useEffect(() => {
     GoogleSignin.configure({
-      webClientId: 'YOUR_WEB_CLIENT_ID', 
+      // Web client ID from Google Cloud Console
+      webClientId: '192945878015-c7ck03vqeduqhnln1a9eslb085on44te.apps.googleusercontent.com',
+      offlineAccess: true,
     });
   }, []);
 
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      setEmailError('Email is required');
-      return false;
-    } else if (!emailRegex.test(email)) {
-      setEmailError('Please enter a valid email');
+  const validateUsername = (username) => {
+    if (!username.trim()) {
+      setUsernameError('Username is required');
       return false;
     }
-    setEmailError('');
+    setUsernameError('');
     return true;
   };
 
@@ -80,92 +79,193 @@ const LoginScreen = ({ navigation }) => {
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
+      
+      // Check if Google Play Services are available
       await GoogleSignin.hasPlayServices();
+      
+      // Sign in with Google - this will show the Google account picker
       const userInfo = await GoogleSignin.signIn();
-      console.log('Google User Info:', userInfo);
+      console.log('Google Sign-In raw response:', JSON.stringify(userInfo));
       
-      // Call API to authenticate with Google credentials
-      const googleAuthData = {
-        idToken: userInfo.idToken,
-        email: userInfo.user.email,
-        name: userInfo.user.name
-      };
+      // Print all top-level keys in the response to debug
+      console.log('Google response keys:', Object.keys(userInfo));
       
-      try {
-        const response = await authService.login({
-          provider: 'google',
-          ...googleAuthData
-        });
-        
-        if (response.token) {
-          navigation.replace('Main');
-        } else {
-          throw new Error('Authentication failed');
-        }
-      } catch (apiError) {
-        console.error('API Error:', apiError);
-        Alert.alert('Login Failed', apiError.message || 'Failed to authenticate with Google');
+      // Extract idToken correctly from the nested data structure
+      let idToken = null;
+      
+      // Check for the token in the data field first (which is what we see in the logs)
+      if (userInfo.data && userInfo.data.idToken) {
+        idToken = userInfo.data.idToken;
+        console.log('Found idToken in userInfo.data');
+      } else if (userInfo.idToken) {
+        idToken = userInfo.idToken;
+        console.log('Found idToken in userInfo (top level)');
+      } else if (userInfo.data && userInfo.data.serverAuthCode) {
+        idToken = userInfo.data.serverAuthCode;
+        console.log('Using serverAuthCode from data as fallback');
+      } else if (userInfo.serverAuthCode) {
+        idToken = userInfo.serverAuthCode;
+        console.log('Using serverAuthCode as fallback');
       }
       
-      setIsLoading(false);
+      console.log('Extracted token type:', idToken ? 'Found token' : 'No token found');
+      
+      // If still no token, try to use the user ID to create a pseudo-token
+      if (!idToken) {
+        // Try to find user ID in various places in the response structure
+        const userId = 
+          (userInfo.data && userInfo.data.user && userInfo.data.user.id) || 
+          (userInfo.user && userInfo.user.id) || 
+          (userInfo.data && userInfo.data.id) ||
+          userInfo.id;
+        
+        if (userId) {
+          console.log('Creating pseudo-token from user ID as last resort');
+          idToken = `pseudo-token-${userId}`;
+        }
+      }
+      
+      if (!idToken) {
+        console.error('Unable to extract idToken from Google response');
+        Alert.alert('Authentication Error', 'Could not retrieve authentication token from Google.');
+        return;
+      }
+      
+      // Extract all possible user data, checking both top-level and data.user structures
+      const userData = userInfo.data || userInfo;
+      const googleAuthData = {
+        idToken: idToken,
+        email: userData.user?.email || userData.email,
+        name: userData.user?.name || userData.displayName || userData.givenName,
+        photo: userData.user?.photo || userData.photoURL
+      };
+      
+      console.log('GoogleAuthData sending to backend:', JSON.stringify(googleAuthData));
+      
+      // Send to our backend through the authService
+      const response = await authService.googleAuth(googleAuthData);
+      
+      if (response.success) {
+        console.log('Backend authentication successful');
+        
+        if (response.isNewUser || !response.user.hasProfile) {
+          // New user or existing user without profile - go to profile creation
+          console.log('New Google user or no profile, navigating to CreateProfile');
+          navigation.replace('CreateProfile');
+        } else {
+          // Existing user with profile - go to main app
+          console.log('Existing Google user with profile, navigating to Main');
+          navigation.replace('Main');
+        }
+      } else {
+        // Handle auth failure
+        Alert.alert('Authentication Failed', response.message || 'Failed to authenticate with Google');
+      }
     } catch (error) {
+      console.error('Google Sign-In error:', error);
+      
+      // Improved error handling - check if error and error.code exist before using them
+      if (error && error.code) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+          console.log('Sign in cancelled by user');
+          // Just close the dialog, no error message needed
+        } else if (error.code === statusCodes.IN_PROGRESS) {
+          Alert.alert('Google Sign-In', 'Sign in is already in progress');
+        } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          Alert.alert('Google Play Services Required', 'Please install/update Google Play Services to use this feature');
+        } else {
+          // Generic error message for other code-based errors
+          Alert.alert('Google Sign-In Error', error.message || 'An error occurred during Google Sign-In. Please try again later.');
+        }
+      } else {
+        // Fallback for when error object doesn't have expected structure
+        Alert.alert('Google Sign-In Error', 'An unexpected error occurred. Please try again later.');
+      }
+    } finally {
       setIsLoading(false);
-      console.error(error);
-      Alert.alert('Google Sign-In Error', error.message);
     }
   };
 
   const handleLogin = async () => {
-    Keyboard.dismiss();
-    const isEmailValid = validateEmail(email);
+    // Validate inputs
+    const isUsernameValid = validateUsername(username);
     const isPasswordValid = validatePassword(password);
 
-    if (isEmailValid && isPasswordValid) {
+    if (isUsernameValid && isPasswordValid) {
       setIsLoading(true);
-      
+      dismissKeyboard();
+
       try {
-        // We no longer clear user data when logging in, to preserve data between sessions
-        
+        console.log('Attempting login with:', { username: username.trim(), password: '***' });
+
+        // Call login API endpoint
         const response = await authService.login({
-          email,
-          password
+          username: username.trim(),
+          password: password
         });
-        
-        setIsLoading(false);
-        
-        if (response.token) {
-          console.log('Login successful, user ID:', response.user.id);
+
+        if (response.success) {
+          console.log('Login successful, navigating to Main screen');
           
-          // After successful login, make sure to fetch the profile
+          // Fetch user profile after successful login
           try {
-            const profileResponse = await authService.getProfile();
-            if (profileResponse && profileResponse.profile) {
-              console.log('Profile retrieved successfully after login');
+            // The API doesn't return user ID with login, so we need to lookup by username
+            // This is a workaround until the API can return the user ID
+            const storedUser = await authService.getUserFromStorage();
+            if (storedUser) {
+              navigation.replace('Main');
+            } else {
+              // If user doesn't have a profile yet, redirect to create profile
+              navigation.replace('CreateProfile');
             }
           } catch (profileError) {
-            console.log('Could not retrieve profile after login:', profileError.message);
+            console.error('Error fetching profile:', profileError);
+            navigation.replace('CreateProfile');
           }
-          
-          navigation.replace('Main');
         } else {
-          throw new Error('Authentication failed');
+          throw new Error(response.message || 'Login failed. Please check your credentials.');
         }
       } catch (error) {
         setIsLoading(false);
         console.error('Login error:', error);
         
-        // Show appropriate error message
-        if (error.type === 'network') {
+        // Show appropriate error message based on error type
+        if (error.response?.status === 404) {
+          Alert.alert('Login Failed', 'Username not found. Please check your credentials.');
+        } else if (error.response?.status === 401) {
+          Alert.alert('Login Failed', 'Incorrect password. Please try again.');
+        } else if (error.type === 'network') {
           Alert.alert('Connection Error', 'Please check your internet connection and try again.');
         } else {
-          Alert.alert(
-            'Login Failed', 
-            error.message || 'Invalid credentials. Please try again or create a new account.'
-          );
+          Alert.alert('Login Failed', error.message || 'An unexpected error occurred. Please try again.');
         }
+      } finally {
+        setIsLoading(false);
       }
     }
   };
+
+  // Add a useEffect hook to check for existing login at component mount
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      try {
+        setIsLoading(true);
+        const authStatus = await authService.checkAuthStatus();
+        
+        if (authStatus.isAuthenticated) {
+          // User is already logged in
+          console.log('User already logged in, navigating to Main screen');
+          navigation.replace('Main');
+        }
+      } catch (error) {
+        console.error('Error checking login status:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkLoginStatus();
+  }, [navigation]);
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
@@ -190,23 +290,22 @@ const LoginScreen = ({ navigation }) => {
             
             <Text style={styles.title}>Login</Text>
 
-            {/* Email Input */}
+            {/* Username Input */}
             <View style={styles.inputContainer}>
               <TextInput
-                style={[styles.input, emailError ? styles.inputError : null]}
-                placeholder="Enter Email"
-                value={email}
+                style={[styles.input, usernameError ? styles.inputError : null]}
+                placeholder="Enter Username"
+                value={username}
                 onChangeText={(text) => {
-                  setEmail(text);
-                  if (emailError) validateEmail(text);
+                  setUsername(text);
+                  if (usernameError) validateUsername(text);
                 }}
                 placeholderTextColor="#999"
-                keyboardType="email-address"
                 autoCapitalize="none"
-                onBlur={() => validateEmail(email)}
+                onBlur={() => validateUsername(username)}
                 maxLength={100}
               />
-              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+              {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
             </View>
 
             {/* Password Input */}

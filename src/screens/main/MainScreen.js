@@ -12,13 +12,11 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
-import { authService } from '../../services/api';
-
-// Simple mock data for workout progress
-const weeklyWorkoutData = [3, 1, 4, 2, 3, 0, 1]; // Last 7 days
-const monthlyProgress = [30, 45, 60, 75, 85]; // Percentage completion for recent weeks
+import profileService from '../../services/profileService';
+import workoutService from '../../services/workoutService';
 
 const MainScreen = ({ route, navigation }) => {
+  // User profile data
   const [userData, setUserData] = useState({
     name: '',
     surname: '',
@@ -33,40 +31,91 @@ const MainScreen = ({ route, navigation }) => {
     profileImageUri: null
   });
 
-  const [isLoading, setIsLoading] = useState(true);
+  // Workout statistics data
   const [workoutData, setWorkoutData] = useState({
-    completedWorkouts: 5,
-    inProgressWorkouts: 1,
-    minutesSpent: 30,
-    caloriesBurned: 350,
-    streakDays: 3,
-    todaysProgress: 45, // percentage
+    completedWorkouts: 0,
+    inProgressWorkouts: 0,
+    minutesSpent: 0,
+    caloriesBurned: 0,
+    streakDays: 0,
+    todaysProgress: 0,
   });
+
+  // Weekly and monthly progress data
+  const [weeklyWorkoutData, setWeeklyWorkoutData] = useState([]);
+  const [monthlyProgress, setMonthlyProgress] = useState([]);
   
-  // Fetch user data from API or route params
+  // Recent workouts
+  const [recentWorkouts, setRecentWorkouts] = useState([]);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Fetch user data from API
   useEffect(() => {
     const fetchUserData = async () => {
       setIsLoading(true);
       try {
-        // Try to get user data from API
-        const response = await authService.getProfile();
+        // Get user profile data
+        const userData = await AsyncStorage.getItem('user_data');
+        if (!userData) {
+          throw new Error('No user data found');
+        }
         
-        if (response && response.profile) {
-          const profile = response.profile;
+        const user = JSON.parse(userData);
+        if (!user.userID) {
+          throw new Error('User ID not found in stored data');
+        }
+        
+        // Get user profile
+        const profileResponse = await profileService.getProfile(user.userID);
+        console.log('Profile response in MainScreen:', profileResponse);
+        
+        if (profileResponse.success && profileResponse.profile) {
+          const profile = profileResponse.profile;
+          // Calculate BMI if height and weight are available
+          let bmi = '';
+          if (profile.height && profile.weight) {
+            const heightInMeters = profile.height / 100;
+            bmi = (profile.weight / (heightInMeters * heightInMeters)).toFixed(1);
+          }
+          
+          // Split full name into first name and surname
+          let firstName = '';
+          let surname = '';
+          if (profile.full_name) {
+            const nameParts = profile.full_name.split(' ');
+            firstName = nameParts[0] || '';
+            surname = nameParts.slice(1).join(' ') || '';
+          }
+          
+          // Process profile picture
+          let profilePic = null;
+          if (profile.profilepic) {
+            profilePic = profile.profilepic;
+            console.log('Profile picture available in MainScreen, length:', profile.profilepic.length);
+          }
+          
           setUserData({
-            name: profile.firstName || '',
-            surname: profile.lastName || '',
+            name: firstName,
+            surname: surname,
             gender: profile.gender || '',
-            dob: profile.dateOfBirth || '',
-            weight: profile.weight ? String(profile.weight) : '',
-            height: profile.height ? String(profile.height) : '',
-            bmi: profile.bmi ? String(profile.bmi) : '',
-            dailyCalories: profile.dailyCalories ? String(profile.dailyCalories) : '',
-            goal: profile.fitnessGoal || '',
-            activityLevel: profile.activityLevel || '',
-            profileImageUri: profile.profileImageUri || null
+            dob: profile.birth_date || '',
+            weight: profile.weight ? String(profile.weight) : '0',
+            height: profile.height ? String(profile.height) : '0',
+            bmi: bmi || '0',
+            dailyCalories: '0', // Not tracked yet
+            goal: profile.fitness_goal || '',
+            activityLevel: profile.activity_level || '',
+            profileImageUri: profilePic
           });
-          console.log('Main screen profile image:', profile.profileImageUri);
+          
+          console.log('User data set:', {
+            name: firstName,
+            surname: surname,
+            gender: profile.gender || '',
+            weight: profile.weight ? String(profile.weight) : '0',
+            height: profile.height ? String(profile.height) : '0'
+          });
         } else if (route.params) {
           // Fallback to route params
           setUserData({
@@ -74,36 +123,122 @@ const MainScreen = ({ route, navigation }) => {
             surname: route.params.surname || '',
             gender: route.params.gender || '',
             dob: route.params.dob || '',
-            weight: route.params.weight || '',
-            height: route.params.height || '',
-            bmi: route.params.bmi || '',
-            dailyCalories: route.params.dailyCalories || '',
+            weight: route.params.weight ? String(route.params.weight) : '0',
+            height: route.params.height ? String(route.params.height) : '0',
+            bmi: '0',
+            dailyCalories: '0',
             goal: route.params.goal || '',
             activityLevel: route.params.activityLevel || '',
             profileImageUri: route.params.profileImageUri || null
+          });
+        }
+        
+        // Fetch workout data - continue even if profile fetch failed
+        try {
+          await fetchWorkoutStatistics();
+        } catch (error) {
+          console.error('Error in fetchWorkoutStatistics:', error);
+        }
+        
+        try {
+          await fetchWeeklyProgress();
+        } catch (error) {
+          console.error('Error in fetchWeeklyProgress:', error);
+        }
+        
+        try {
+          await fetchMonthlyProgress();
+        } catch (error) {
+          console.error('Error in fetchMonthlyProgress:', error);
+        }
+        
+        try {
+          await fetchRecentWorkouts();
+        } catch (error) {
+          console.error('Error in fetchRecentWorkouts:', error);
+        }
+        
+      } catch (error) {
+        console.error('Error in fetchUserData:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // API functions for fetching different data types
+    const fetchWorkoutStatistics = async () => {
+      try {
+        // Call API to get workout statistics
+        const response = await workoutService.getWorkoutStatistics();
+        if (response.success && response.stats) {
+          // Map API response to our state format
+          setWorkoutData({
+            completedWorkouts: response.stats.totalWorkouts || 0,
+            inProgressWorkouts: 0, // No in-progress state in API
+            minutesSpent: Math.round(response.stats.totalDuration / 60) || 0, // Convert seconds to minutes
+            caloriesBurned: 0, // Not tracked in API yet
+            streakDays: 0, // Not tracked in API yet
+            todaysProgress: 0, // Not tracked in API yet
           });
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
-        
-        // If API fails but we have route params, use those
-        if (route.params) {
-          setUserData({
-            name: route.params.name || '',
-            surname: route.params.surname || '',
-            gender: route.params.gender || '',
-            dob: route.params.dob || '',
-            weight: route.params.weight || '',
-            height: route.params.height || '',
-            bmi: route.params.bmi || '',
-            dailyCalories: route.params.dailyCalories || '',
-            goal: route.params.goal || '',
-            activityLevel: route.params.activityLevel || '',
-            profileImageUri: route.params.profileImageUri || null
-          });
+        console.error('Error fetching workout statistics:', error);
+        // Initialize with empty values if there's an error
+        setWorkoutData({
+          completedWorkouts: 0,
+          inProgressWorkouts: 0,
+          minutesSpent: 0,
+          caloriesBurned: 0,
+          streakDays: 0,
+          todaysProgress: 0,
+        });
+      }
+    };
+    
+    const fetchWeeklyProgress = async () => {
+      try {
+        // Call API to get weekly progress
+        const response = await workoutService.getWeeklyProgress();
+        if (response.success && response.weeklyData) {
+          // Convert seconds to minutes for display
+          const dataInMinutes = response.weeklyData.map(seconds => 
+            Math.round(seconds / 60)
+          );
+          setWeeklyWorkoutData(dataInMinutes);
         }
-      } finally {
-        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching weekly progress:', error);
+        setWeeklyWorkoutData([0, 0, 0, 0, 0, 0, 0]); // Fallback to empty data
+      }
+    };
+    
+    const fetchMonthlyProgress = async () => {
+      try {
+        // Call API to get monthly progress
+        const response = await workoutService.getMonthlyProgress();
+        if (response.success && response.monthlyData) {
+          // Convert seconds to minutes for display
+          const dataInMinutes = response.monthlyData.map(seconds => 
+            Math.round(seconds / 60)
+          );
+          setMonthlyProgress(dataInMinutes);
+        }
+      } catch (error) {
+        console.error('Error fetching monthly progress:', error);
+        setMonthlyProgress(Array(12).fill(0)); // Fallback to empty data for 12 months
+      }
+    };
+    
+    const fetchRecentWorkouts = async () => {
+      try {
+        // Call API to get recent workouts
+        const response = await workoutService.getRecentWorkouts();
+        if (response.success && response.recentWorkouts) {
+          setRecentWorkouts(response.recentWorkouts);
+        }
+      } catch (error) {
+        console.error('Error fetching recent workouts:', error);
+        setRecentWorkouts([]); // Fallback to empty data
       }
     };
     
@@ -196,6 +331,22 @@ const MainScreen = ({ route, navigation }) => {
     );
   };
 
+  // Add new NoWorkoutsMessage component
+  const NoWorkoutsMessage = () => {
+    return (
+      <View style={styles.noWorkoutsContainer}>
+        <Text style={styles.noWorkoutsText}>You haven't completed any workouts yet.</Text>
+        <Text style={styles.noWorkoutsSubtext}>Start a new workout to see your history here!</Text>
+        <TouchableOpacity 
+          style={styles.startWorkoutButton}
+          onPress={() => navigation.navigate('StartWorkout')}
+        >
+          <Text style={styles.startWorkoutButtonText}>Start a Workout</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -228,12 +379,16 @@ const MainScreen = ({ route, navigation }) => {
               >
                 {userData.profileImageUri ? (
                   <Image
-                    source={{ uri: userData.profileImageUri }}
+                    source={{ 
+                      uri: userData.profileImageUri.startsWith('data:image') 
+                        ? userData.profileImageUri 
+                        : `data:image/jpeg;base64,${userData.profileImageUri}` 
+                    }}
                     style={styles.profileImage}
                   />
                 ) : (
                   <Image
-                    source={require('../../../assets/images/profile_pic.jpg')}
+                    source={require('../../../assets/images/emptyProfilePic.jpg')}
                     style={styles.profileImage}
                   />
                 )}
@@ -271,8 +426,8 @@ const MainScreen = ({ route, navigation }) => {
             </View>
             
             {/* Activity Charts */}
-            <WeeklyProgressChart />
-            <MonthlyProgress />
+            {weeklyWorkoutData.length > 0 && <WeeklyProgressChart />}
+            {monthlyProgress.length > 0 && <MonthlyProgress />}
             
             {/* Health Metrics */}
             <View style={styles.metricsContainer}>
@@ -307,50 +462,28 @@ const MainScreen = ({ route, navigation }) => {
                   <Text style={styles.seeAllText}>See All</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity 
-                style={styles.workoutCard}
-                onPress={() => navigation.navigate('WorkoutVideo', {
-                  workout: {
-                    id: 'w1',
-                    name: 'Full Body HIIT',
-                    duration: '30 min',
-                    intensity: 'High',
-                    calories: 320
-                  }
-                })}
-              >
-                <Image 
-                  source={require('../../../assets/images/gym.jpg')} 
-                  style={styles.workoutCardImage}
-                />
-                <View style={styles.workoutCardContent}>
-                  <Text style={styles.workoutCardTitle}>Full Body HIIT</Text>
-                  <Text style={styles.workoutCardDetails}>30 min • High Intensity</Text>
-                  <Text style={styles.workoutCardCalories}>320 calories</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.workoutCard}
-                onPress={() => navigation.navigate('WorkoutVideo', {
-                  workout: {
-                    id: 'w2',
-                    name: 'Core Crusher',
-                    duration: '20 min',
-                    intensity: 'Medium',
-                    calories: 180
-                  }
-                })}
-              >
-                <Image 
-                  source={require('../../../assets/images/lunge.jpg')} 
-                  style={styles.workoutCardImage}
-                />
-                <View style={styles.workoutCardContent}>
-                  <Text style={styles.workoutCardTitle}>Core Crusher</Text>
-                  <Text style={styles.workoutCardDetails}>20 min • Medium Intensity</Text>
-                  <Text style={styles.workoutCardCalories}>180 calories</Text>
-                </View>
-              </TouchableOpacity>
+              
+              {recentWorkouts.length > 0 ? (
+                recentWorkouts.map((workout, index) => (
+                  <TouchableOpacity 
+                    key={workout.id || index}
+                    style={styles.workoutCard}
+                    onPress={() => navigation.navigate('WorkoutVideo', { workout })}
+                  >
+                    <Image 
+                      source={workout.image ? { uri: workout.image } : require('../../../assets/images/gym.jpg')} 
+                      style={styles.workoutCardImage}
+                    />
+                    <View style={styles.workoutCardContent}>
+                      <Text style={styles.workoutCardTitle}>{workout.name}</Text>
+                      <Text style={styles.workoutCardDetails}>{workout.duration} min • {workout.intensity} Intensity</Text>
+                      <Text style={styles.workoutCardCalories}>{workout.calories} calories</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <NoWorkoutsMessage />
+              )}
             </View>
             
             {/* Recommendations */}
@@ -702,7 +835,42 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#fff',
     fontWeight: '600',
-  }
+  },
+  noDataText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  noWorkoutsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noWorkoutsText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  noWorkoutsSubtext: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  startWorkoutButton: {
+    backgroundColor: '#8E44AD',
+    borderRadius: 30,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+  },
+  startWorkoutButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
 });
 
 export default MainScreen;

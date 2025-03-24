@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
-import { authService } from '../../services/api';
+import { profileService, authService } from '../../services';
 
 const ProfileScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -36,31 +36,74 @@ const ProfileScreen = ({ navigation, route }) => {
     const fetchProfileData = async () => {
       setIsLoading(true);
       try {
-        const response = await authService.getProfile();
+        // Get user ID from storage
+        const userData = await AsyncStorage.getItem('user_data');
+        if (!userData) {
+          throw new Error('No user data found');
+        }
         
-        if (response && response.profile) {
+        const user = JSON.parse(userData);
+        if (!user.userID) {
+          throw new Error('User ID not found in stored data');
+        }
+        
+        console.log(`Fetching profile for user ID: ${user.userID}`);
+        const response = await profileService.getProfile(user.userID);
+        console.log('Profile response in ProfileScreen:', response);
+        
+        if (response.success && response.profile) {
           // If the API returns profile data, use it
           const profile = response.profile;
+          console.log('Processing profile data:', profile);
+          
+          // Split full name into first name and surname
+          let firstName = '';
+          let lastName = '';
+          if (profile.full_name) {
+            const nameParts = profile.full_name.split(' ');
+            firstName = nameParts[0] || '';
+            lastName = nameParts.slice(1).join(' ') || '';
+          }
+          
+          // Handle profile picture
+          let profilePic = null;
+          if (profile.profilepic) {
+            // If the profilepic is already a data URL, use it as is
+            // Otherwise, assume it's a base64 string and add the prefix
+            profilePic = profile.profilepic;
+            console.log('Profile picture found, length:', profile.profilepic.length);
+          }
+          
           setProfileData({
-            name: profile.firstName || '',
-            surname: profile.lastName || '',
+            name: firstName,
+            surname: lastName,
             gender: profile.gender || '',
-            dob: profile.dateOfBirth || '',
-            weight: profile.weight ? String(profile.weight) : '',
-            height: profile.height ? String(profile.height) : '',
-            goal: profile.fitnessGoal || '',
-            activityLevel: profile.activityLevel || '',
-            profileImageUri: profile.profileImageUri || null
+            dob: profile.birth_date || '',
+            weight: profile.weight ? String(profile.weight) : '0',
+            height: profile.height ? String(profile.height) : '0',
+            goal: profile.fitness_goal || '',
+            activityLevel: profile.activity_level || '',
+            profileImageUri: profilePic
+          });
+          
+          console.log('Profile data set:', {
+            name: firstName,
+            surname: lastName,
+            gender: profile.gender || '',
+            weight: profile.weight,
+            height: profile.height,
+            hasProfileImage: !!profilePic
           });
         } else if (route.params) {
           // Fallback to route params if available
+          console.log('No profile data from API, using route params:', route.params);
           setProfileData({
             name: route.params.name || '',
             surname: route.params.surname || '',
             gender: route.params.gender || '',
             dob: route.params.dob || '',
-            weight: route.params.weight ? String(route.params.weight) : '',
-            height: route.params.height ? String(route.params.height) : '',
+            weight: route.params.weight ? String(route.params.weight) : '0',
+            height: route.params.height ? String(route.params.height) : '0',
             goal: route.params.goal || '',
             activityLevel: route.params.activityLevel || '',
             profileImageUri: route.params.profileImageUri || null
@@ -76,8 +119,8 @@ const ProfileScreen = ({ navigation, route }) => {
             surname: route.params.surname || '',
             gender: route.params.gender || '',
             dob: route.params.dob || '',
-            weight: route.params.weight ? String(route.params.weight) : '',
-            height: route.params.height ? String(route.params.height) : '',
+            weight: route.params.weight ? String(route.params.weight) : '0',
+            height: route.params.height ? String(route.params.height) : '0',
             goal: route.params.goal || '',
             activityLevel: route.params.activityLevel || '',
             profileImageUri: route.params.profileImageUri || null
@@ -109,11 +152,38 @@ const ProfileScreen = ({ navigation, route }) => {
       return 'N/A';
     }
     
-    return (weightInKg / (heightInMeters * heightInMeters)).toFixed(2);
+    return (weightInKg / (heightInMeters * heightInMeters)).toFixed(1);
+  };
+
+  // Get BMI category and color
+  const getBMICategory = (bmi) => {
+    if (bmi === 'N/A') return { category: 'N/A', color: '#808080' };
+    
+    const bmiValue = parseFloat(bmi);
+    
+    if (bmiValue < 18.5) return { category: 'Underweight', color: '#3498DB' };
+    if (bmiValue < 25) return { category: 'Normal', color: '#2ECC71' };
+    if (bmiValue < 30) return { category: 'Overweight', color: '#F39C12' };
+    return { category: 'Obese', color: '#E74C3C' };
+  };
+
+  // Get the position for the BMI marker on the scale (0-100%)
+  const getBMIPosition = (bmi) => {
+    if (bmi === 'N/A') return 50; // Middle if N/A
+    
+    const bmiValue = parseFloat(bmi);
+    // Map BMI from range [15-40] to [0-100]
+    let position = ((bmiValue - 15) / (40 - 15)) * 100;
+    
+    // Clamp value between 0 and 100
+    position = Math.max(0, Math.min(100, position));
+    return position;
   };
 
   // Format activity level for display
   const formatActivityLevel = (level) => {
+    if (!level) return 'Not specified';
+    
     switch(level) {
       case 'sedentary': return 'Sedentary';
       case 'light': return 'Lightly Active';
@@ -126,6 +196,8 @@ const ProfileScreen = ({ navigation, route }) => {
 
   // Format fitness goal for display
   const formatGoal = (goal) => {
+    if (!goal) return 'Not specified';
+    
     switch(goal) {
       case 'lose_weight': return 'Lose Weight';
       case 'build_muscle': return 'Build Muscle';
@@ -182,12 +254,16 @@ const ProfileScreen = ({ navigation, route }) => {
             <View style={styles.profileImageContainer}>
               {profileImageUri ? (
                 <Image
-                  source={{ uri: profileImageUri }}
+                  source={{ 
+                    uri: profileImageUri.startsWith('data:image') 
+                      ? profileImageUri 
+                      : `data:image/jpeg;base64,${profileImageUri}`
+                  }}
                   style={styles.profileImage}
                 />
               ) : (
                 <Image
-                  source={require('../../../assets/images/profile_pic.jpg')}
+                  source={require('../../../assets/images/emptyProfilePic.jpg')}
                   style={styles.profileImage}
                 />
               )}
@@ -219,22 +295,79 @@ const ProfileScreen = ({ navigation, route }) => {
             <View style={styles.infoRow}>
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Weight</Text>
-                <Text style={styles.infoValue}>{weight} kg</Text>
+                <Text style={styles.infoValue}>{weight ? `${weight} kg` : 'Not specified'}</Text>
               </View>
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Height</Text>
-                <Text style={styles.infoValue}>{height} cm</Text>
+                <Text style={styles.infoValue}>{height ? `${height} cm` : 'Not specified'}</Text>
               </View>
             </View>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>BMI</Text>
-                <Text style={styles.infoValue}>{calculateBMI()}</Text>
+
+            {/* Enhanced BMI Display */}
+            <View style={styles.bmiContainer}>
+              <View style={styles.bmiHeaderRow}>
+                <Text style={styles.bmiLabel}>Body Mass Index (BMI)</Text>
+                <Text style={styles.bmiValue}>{calculateBMI()}</Text>
               </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}></Text>
-                <Text style={styles.infoValue}></Text>
-              </View>
+              
+              {calculateBMI() !== 'N/A' && (
+                <>
+                  {/* BMI Category Labels */}
+                  <View style={styles.bmiCategoryLabels}>
+                    <Text style={[styles.bmiCategoryText, {color: '#3498DB'}]}>Underweight</Text>
+                    <Text style={[styles.bmiCategoryText, {color: '#2ECC71'}]}>Normal</Text>
+                    <Text style={[styles.bmiCategoryText, {color: '#F39C12'}]}>Overweight</Text>
+                    <Text style={[styles.bmiCategoryText, {color: '#E74C3C'}]}>Obese</Text>
+                  </View>
+                
+                  {/* BMI Scale */}
+                  <View style={styles.bmiScaleContainer}>
+                    <View style={styles.bmiScale}>
+                      <View style={[styles.bmiScaleSection, { flex: 18.5, backgroundColor: '#3498DB' }]} />
+                      <View style={[styles.bmiScaleSection, { flex: 6.5, backgroundColor: '#2ECC71' }]} />
+                      <View style={[styles.bmiScaleSection, { flex: 5, backgroundColor: '#F39C12' }]} />
+                      <View style={[styles.bmiScaleSection, { flex: 10, backgroundColor: '#E74C3C' }]} />
+                    </View>
+                    
+                    {/* BMI Marker */}
+                    <View 
+                      style={[
+                        styles.bmiMarker, 
+                        { left: `${getBMIPosition(calculateBMI())}%` }
+                      ]}
+                    />
+                  </View>
+                  
+                  {/* BMI Scale Labels */}
+                  <View style={styles.bmiScaleLabels}>
+                    <Text style={styles.bmiScaleLabel}>15</Text>
+                    <Text style={styles.bmiScaleLabel}>18.5</Text>
+                    <Text style={styles.bmiScaleLabel}>25</Text>
+                    <Text style={styles.bmiScaleLabel}>30</Text>
+                    <Text style={styles.bmiScaleLabel}>40</Text>
+                  </View>
+                  
+                  {/* BMI Category */}
+                  <View style={styles.bmiResultContainer}>
+                    <Text style={styles.bmiResultLabel}>Your BMI Category: </Text>
+                    <Text 
+                      style={[
+                        styles.bmiResultValue, 
+                        { color: getBMICategory(calculateBMI()).color }
+                      ]}
+                    >
+                      {getBMICategory(calculateBMI()).category}
+                    </Text>
+                  </View>
+
+                  {/* BMI Information */}
+                  <View style={styles.bmiInfoContainer}>
+                    <Text style={styles.bmiInfoText}>
+                      BMI provides a simple numeric measure of your weight relative to height, and is widely used to identify weight categories that may lead to health problems.
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
           
@@ -364,6 +497,92 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  bmiContainer: {
+    marginBottom: 16,
+  },
+  bmiHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  bmiLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  bmiValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#fff',
+  },
+  bmiScaleContainer: {
+    height: 20,
+    position: 'relative', 
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginVertical: 12,
+  },
+  bmiScale: {
+    flexDirection: 'row',
+    height: '100%',
+  },
+  bmiScaleSection: {
+    height: '100%',
+  },
+  bmiMarker: {
+    position: 'absolute',
+    top: -5,
+    width: 8,
+    height: 30,
+    backgroundColor: '#fff',
+    borderRadius: 4,
+    marginLeft: -4, // Centers the marker
+  },
+  bmiScaleLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  bmiScaleLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  bmiCategoryLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  bmiCategoryText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    paddingHorizontal: 2,
+  },
+  bmiResultContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  bmiResultLabel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginRight: 8,
+  },
+  bmiResultValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#fff',
+  },
+  bmiInfoContainer: {
+    marginTop: 8,
+  },
+  bmiInfoText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
 });
 
