@@ -16,7 +16,30 @@ import profileService from '../../services/profileService';
 import workoutService from '../../services/workoutService';
 import { apiClient } from '../../services/apiConfig';
 
+// Fitness quotes that will rotate every 10 minutes
+const fitnessQuotes = [
+  "Keep the progress! You're improving every day!",
+  "The only bad workout is the one that didn't happen.",
+  "Your body can stand almost anything. It's your mind you have to convince.",
+  "Fitness is not about being better than someone else. It's about being better than you used to be.",
+  "The hard part isn't getting your body in shape. The hard part is getting your mind in shape.",
+  "Don't stop when you're tired. Stop when you're done.",
+  "No matter how slow you go, you're still lapping everyone on the couch.",
+  "What seems impossible today will one day become your warm-up.",
+  "The pain you feel today will be the strength you feel tomorrow.",
+  "If it doesn't challenge you, it doesn't change you.",
+  "Your health is an investment, not an expense.",
+  "The only place where success comes before work is in the dictionary.",
+  "Make yourself stronger than your excuses.",
+  "Strive for progress, not perfection.",
+  "You're only one workout away from a good mood."
+];
+
 const MainScreen = ({ route, navigation }) => {
+  // Current quote state
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
+  const [currentQuote, setCurrentQuote] = useState(fitnessQuotes[0]);
+
   // User profile data
   const [userData, setUserData] = useState({
     fullName: '',
@@ -49,6 +72,41 @@ const MainScreen = ({ route, navigation }) => {
   const [recentWorkouts, setRecentWorkouts] = useState([]);
   
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Effect to rotate fitness quotes every 10 minutes
+  useEffect(() => {
+    // Update quote immediately on first load
+    setCurrentQuote(fitnessQuotes[currentQuoteIndex]);
+    
+    // Set interval to change quote every 10 minutes (600000 ms)
+    const quoteInterval = setInterval(() => {
+      setCurrentQuoteIndex(prevIndex => {
+        const newIndex = (prevIndex + 1) % fitnessQuotes.length;
+        setCurrentQuote(fitnessQuotes[newIndex]);
+        return newIndex;
+      });
+    }, 600000);
+    
+    // Debug interval to make testing easier - changes quote every 30 seconds
+    // Only enabled during development
+    if (__DEV__) {
+      const debugInterval = setInterval(() => {
+        setCurrentQuoteIndex(prevIndex => {
+          const newIndex = (prevIndex + 1) % fitnessQuotes.length;
+          setCurrentQuote(fitnessQuotes[newIndex]);
+          return newIndex;
+        });
+      }, 30000);
+      
+      return () => {
+        clearInterval(quoteInterval);
+        clearInterval(debugInterval);
+      };
+    }
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(quoteInterval);
+  }, [currentQuoteIndex]);
   
   // Fetch user data from API
   useEffect(() => {
@@ -338,18 +396,7 @@ const MainScreen = ({ route, navigation }) => {
 
   // Get goal-based recommendation
   const getRecommendation = () => {
-    switch(userData.goal) {
-      case 'lose_weight':
-        return "Focus on cardio and maintain a calorie deficit";
-      case 'build_muscle':
-        return "Increase protein intake and focus on strength training";
-      case 'improve_fitness':
-        return "Mix cardio and resistance training for overall fitness";
-      case 'maintain_health':
-        return "Maintain balanced workouts and healthy nutrition";
-      default:
-        return "Keep the progress! You're improving every day!";
-    }
+    return currentQuote;
   };
 
   // Simple progress chart component
@@ -689,7 +736,7 @@ const MainScreen = ({ route, navigation }) => {
             
             {/* Recommendations */}
             <View style={styles.recommendationsContainer}>
-              <Text style={styles.sectionTitle}>Recommended For You</Text>
+              <Text style={styles.sectionTitle}>Fitness Inspiration</Text>
               <View style={styles.recommendationCard}>
                 <Image 
                   source={require('../../../assets/images/gym_icon2.png')}

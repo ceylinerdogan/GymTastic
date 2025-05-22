@@ -1,11 +1,11 @@
 import axios from 'axios';
 
 // Development machine IP - Update this to your current IP address
-export const DEV_MACHINE_IP = '10.143.4.6';
+export const DEV_MACHINE_IP = '10.0.2.2';
 
 // API URL Configuration
 // Using same server base URL for API and sockets
-export const API_URL = 'http://10.143.4.6:5000';  // Backend server address
+export const API_URL = 'http://10.0.2.2:5000';  // Special IP to access host from Android emulator
 
 // Socket URL for legacy code
 export const SOCKET_URL = API_URL;
