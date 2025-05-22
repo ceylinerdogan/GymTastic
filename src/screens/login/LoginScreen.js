@@ -21,10 +21,10 @@ import authService from '../../services/authService';
 import profileService from '../../services/profileService';
 
 const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
   React.useEffect(() => {
@@ -35,17 +35,12 @@ const LoginScreen = ({ navigation }) => {
     });
   }, []);
 
-  const validateEmail = (email) => {
-    if (!email.trim()) {
-      setEmailError('Email is required');
+  const validateUsername = (username) => {
+    if (!username.trim()) {
+      setUsernameError('Username is required');
       return false;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setEmailError('Invalid email format');
-      return false;
-    }
-    setEmailError('');
+    setUsernameError('');
     return true;
   };
 
@@ -193,19 +188,19 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     // Validate inputs
-    const isEmailValid = validateEmail(email);
+    const isUsernameValid = validateUsername(username);
     const isPasswordValid = validatePassword(password);
 
-    if (isEmailValid && isPasswordValid) {
+    if (isUsernameValid && isPasswordValid) {
       setIsLoading(true);
       dismissKeyboard();
 
       try {
-        console.log('Attempting login with:', { email: email.trim(), password: '***' });
+        console.log('Attempting login with:', { username: username.trim(), password: '***' });
 
-        // Call login API endpoint
+        // Call login API endpoint with username instead of email
         const response = await authService.login({
-          email: email.trim(),
+          username: username.trim(),
           password: password
         });
 
@@ -236,7 +231,7 @@ const LoginScreen = ({ navigation }) => {
         
         // Show appropriate error message based on error type
         if (error.response?.status === 404) {
-          Alert.alert('Login Failed', 'Email not found. Please check your credentials.');
+          Alert.alert('Login Failed', 'Username not found. Please check your credentials.');
         } else if (error.response?.status === 401) {
           Alert.alert('Login Failed', 'Incorrect password. Please try again.');
         } else if (error.type === 'network') {
@@ -295,35 +290,28 @@ const LoginScreen = ({ navigation }) => {
             
             <Text style={styles.title}>Login</Text>
 
-            {/* Email Input */}
+            {/* Username Input */}
             <View style={styles.inputContainer}>
               <TextInput
-                style={[styles.input, emailError ? styles.inputError : null]}
-                placeholder="Enter Email"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (emailError) validateEmail(text);
-                }}
+                style={[styles.input, usernameError ? styles.inputError : null]}
+                placeholder="Username"
+                value={username}
+                onChangeText={setUsername}
                 placeholderTextColor="#999"
                 autoCapitalize="none"
-                onBlur={() => validateEmail(email)}
-                maxLength={100}
+                onBlur={() => validateUsername(username)}
               />
-              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+              {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
             </View>
 
             {/* Password Input */}
             <View style={styles.inputContainer}>
               <TextInput
                 style={[styles.input, passwordError ? styles.inputError : null]}
-                placeholder="Enter Password"
+                placeholder="Password"
                 secureTextEntry
                 value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (passwordError) validatePassword(text);
-                }}
+                onChangeText={setPassword}
                 placeholderTextColor="#999"
                 onBlur={() => validatePassword(password)}
               />

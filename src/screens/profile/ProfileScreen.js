@@ -9,6 +9,7 @@ const ProfileScreen = ({ navigation, route }) => {
   const [profileData, setProfileData] = useState({
     name: '',
     surname: '',
+    fullName: '',
     gender: '',
     dob: '',
     weight: '',
@@ -23,6 +24,7 @@ const ProfileScreen = ({ navigation, route }) => {
   const { 
     name, 
     surname, 
+    fullName,
     gender, 
     dob, 
     weight, 
@@ -44,8 +46,11 @@ const ProfileScreen = ({ navigation, route }) => {
         
         if (response.success && response.profile) {
           // If the API returns profile data, use it
-          const profile = response.profile;
-          console.log('Processing profile data:', profile);
+          const profileData = response.profile;
+          console.log('Processing profile data:', profileData);
+          
+          // Handle nested profile data structure if present
+          const profile = profileData.profile ? profileData.profile : profileData;
           
           // Split full name into first name and surname
           let firstName = '';
@@ -56,24 +61,52 @@ const ProfileScreen = ({ navigation, route }) => {
             lastName = nameParts.slice(1).join(' ') || '';
           }
           
-          // Handle profile picture
-          let profilePic = null;
-          if (profile.profilepic) {
-            profilePic = profile.profilepic;
-            console.log('Profile picture found, length:', profile.profilepic.length);
+          // Format date of birth if available
+          let formattedDob = '';
+          if (profile.birth_date) {
+            try {
+              // Handle different date formats
+              let birthDate;
+              if (profile.birth_date.includes('T')) {
+                // ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)
+                birthDate = new Date(profile.birth_date);
+              } else if (profile.birth_date.includes('.')) {
+                // DD.MM.YYYY format
+                const parts = profile.birth_date.split('.');
+                if (parts.length === 3) {
+                  birthDate = new Date(parts[2], parseInt(parts[1]) - 1, parts[0]);
+                }
+              } else if (profile.birth_date.includes('-')) {
+                // YYYY-MM-DD format
+                birthDate = new Date(profile.birth_date);
+              }
+
+              if (birthDate && !isNaN(birthDate.getTime())) {
+                // Format as DD.MM.YYYY
+                formattedDob = `${birthDate.getDate().toString().padStart(2, '0')}.${(birthDate.getMonth() + 1).toString().padStart(2, '0')}.${birthDate.getFullYear()}`;
+              } else {
+                // If date parsing failed, just use the original
+                formattedDob = profile.birth_date;
+              }
+            } catch (e) {
+              console.error('Error formatting date:', e);
+              formattedDob = profile.birth_date;
+            }
           }
           
+          // Set profile data
           setProfileData({
             name: firstName,
             surname: lastName,
+            fullName: profile.full_name || '',
             gender: profile.gender || '',
-            dob: profile.birth_date || '',
-            weight: profile.weight ? String(profile.weight) : '0',
-            height: profile.height ? String(profile.height) : '0',
+            dob: formattedDob,
+            weight: profile.weight ? String(profile.weight) : '',
+            height: profile.height ? String(profile.height) : '',
             goal: profile.fitness_goal || '',
             activityLevel: profile.activity_level || '',
-            profileImageUri: profilePic,
-            role: profile.role || 'user'
+            profileImageUri: profile.profilepic || null,
+            role: profile.role || ''
           });
           
           console.log('Profile data set:', {
@@ -82,19 +115,18 @@ const ProfileScreen = ({ navigation, route }) => {
             gender: profile.gender || '',
             weight: profile.weight,
             height: profile.height,
-            role: profile.role || 'user',
-            hasProfileImage: !!profilePic
+            role: profile.role || ''
           });
         } else if (route.params) {
-          // Fallback to route params if available
-          console.log('No profile data from API, using route params:', route.params);
+          // If no profile returned but we have route params, use those
           setProfileData({
             name: route.params.name || '',
             surname: route.params.surname || '',
+            fullName: route.params.fullName || '',
             gender: route.params.gender || '',
             dob: route.params.dob || '',
-            weight: route.params.weight ? String(route.params.weight) : '0',
-            height: route.params.height ? String(route.params.height) : '0',
+            weight: route.params.weight ? String(route.params.weight) : '',
+            height: route.params.height ? String(route.params.height) : '',
             goal: route.params.goal || '',
             activityLevel: route.params.activityLevel || '',
             profileImageUri: route.params.profileImageUri || null,
@@ -109,10 +141,11 @@ const ProfileScreen = ({ navigation, route }) => {
           setProfileData({
             name: route.params.name || '',
             surname: route.params.surname || '',
+            fullName: route.params.fullName || '',
             gender: route.params.gender || '',
             dob: route.params.dob || '',
-            weight: route.params.weight ? String(route.params.weight) : '0',
-            height: route.params.height ? String(route.params.height) : '0',
+            weight: route.params.weight ? String(route.params.weight) : '',
+            height: route.params.height ? String(route.params.height) : '',
             goal: route.params.goal || '',
             activityLevel: route.params.activityLevel || '',
             profileImageUri: route.params.profileImageUri || null,
@@ -262,7 +295,7 @@ const ProfileScreen = ({ navigation, route }) => {
               )}
             </View>
             
-            <Text style={styles.name}>{name} {surname}</Text>
+            <Text style={styles.name}>{fullName || `${name} ${surname}`}</Text>
             
             <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
               <Text style={styles.editButtonText}>Edit Profile</Text>

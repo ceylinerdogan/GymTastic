@@ -95,6 +95,24 @@ export const getProfile = async (userId) => {
         console.log('Profile picture received from API, length:', userData.profilepic.length);
       }
       
+      // The API returns height in meters and weight in kg as numbers
+      const height = userData.height !== null && userData.height !== undefined ? userData.height : 0;
+      const weight = userData.weight !== null && userData.weight !== undefined ? userData.weight : 0;
+      
+      // Calculate BMI
+      let bmi = 0;
+      if (height > 0 && weight > 0) {
+        // Check if height is in meters (less than 3) or cm (greater than 3)
+        const heightInMeters = height < 3 ? height : height / 100;
+        bmi = weight / (heightInMeters * heightInMeters);
+      }
+      
+      console.log('Processed profile values:', { 
+        height, 
+        weight, 
+        bmi: bmi.toFixed(1)
+      });
+      
       // Ensure all fields are properly extracted, with fallbacks to avoid null values
       return {
         success: true,
@@ -104,8 +122,9 @@ export const getProfile = async (userId) => {
           username: userData.username || '',
           email: userData.email || '',
           gender: userData.gender || '',
-          height: userData.height !== null ? userData.height : 0,
-          weight: userData.weight !== null ? userData.weight : 0,
+          height: height,
+          weight: weight,
+          bmi: bmi > 0 ? bmi.toFixed(1) : 0,
           profilepic: profilePic,
           birth_date: userData.birth_date || '',
           fitness_goal: userData.fitness_goal || '',
@@ -148,25 +167,44 @@ export const updateProfile = async (userId, profileData) => {
       numericData.weight = parseFloat(profileData.weight);
     }
     
-    // Verify base64 image format if present
+    // Verify base64 image format if present and check size
     if (profileData.profilepic && typeof profileData.profilepic === 'string') {
       // Check if it's a valid base64 data URL
       if (!profileData.profilepic.startsWith('data:image')) {
         console.error('Invalid profile image format. Expected data:image format');
         // Don't include the image if it's not in the right format
         delete numericData.profilepic;
+      } else {
+        // Check image size - server has a 32MB limit now
+        const base64Length = profileData.profilepic.length;
+        const sizeInBytes = (base64Length - 22) * 0.75; // Rough estimate
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+        
+        console.log(`Profile image size: ~${sizeInMB.toFixed(2)}MB (${sizeInBytes} bytes)`);
+        
+        // Server has been upgraded to a 32MB limit
+        const SERVER_SIZE_LIMIT = 32 * 1024 * 1024; // 32MB
+        if (sizeInBytes > SERVER_SIZE_LIMIT) {
+          console.warn('Profile image exceeds server limit, removing from request');
+          delete numericData.profilepic;
+        }
       }
     }
     
-    // We still use updateUserProfile for updating since userProfile is just for fetching
-    const response = await apiClient.put(`/updateUserProfile/${userId}`, numericData);
+    // Use the proper endpoint /api/users/profile with increased timeout
+    const response = await apiClient.put('/api/users/profile', {
+      ...numericData,
+      user_id: userId
+    }, {
+      timeout: 30000 // Increase timeout to 30 seconds
+    });
     
     if (response.status === 200) {
       console.log('Profile updated successfully:', response.data);
       return {
         success: true,
         message: response.data.message || 'Profile updated successfully',
-        profile: response.data.user
+        profile: response.data.user || response.data
       };
     }
     
@@ -175,7 +213,25 @@ export const updateProfile = async (userId, profileData) => {
       message: response.data.error || 'Failed to update profile'
     };
   } catch (error) {
-    console.error('Update profile error:', error.response?.data || error.message);
+    console.error('Update profile error:', error.message);
+    
+    // More specific error handling
+    if (error.message === 'Network Error') {
+      console.error('Network error occurred. Possible causes: timeout, large profile image, or server unavailable');
+      return {
+        success: false,
+        message: 'Connection timed out. Try uploading a smaller profile image or try again later.'
+      };
+    }
+    
+    // Special handling for server size limit errors
+    if (error.response?.data?.message?.includes('longer than')) {
+      return {
+        success: false,
+        message: 'Profile image is too large. Please use a smaller image (maximum 32MB).'
+      };
+    }
+    
     return handleApiError(error);
   }
 };
@@ -184,16 +240,38 @@ export const updateProfile = async (userId, profileData) => {
 export const getCurrentUserProfile = async () => {
   try {
     const response = await apiClient.get('/api/users/profile');
+    console.log('Profile response:', JSON.stringify(response.data));
     
     if (response.status === 200) {
+      // The API response seems to have nested profile data
+      let profileData = response.data;
+      
+      // Check if the data has a nested profile structure
+      if (profileData.profile && typeof profileData.profile === 'object') {
+        profileData = profileData.profile;
+      }
+      
+      // Extract role from the response (may be at different levels in the structure)
+      const role = profileData.role || response.data.role || 'user';
+      
       // Store the user role in AsyncStorage for easy access
-      if (response.data.role) {
-        await AsyncStorage.setItem('userRole', response.data.role);
+      await AsyncStorage.setItem('userRole', role);
+      
+      // Also store in user_data
+      try {
+        const userData = await AsyncStorage.getItem('user_data');
+        if (userData) {
+          const parsedUserData = JSON.parse(userData);
+          parsedUserData.role = role;
+          await AsyncStorage.setItem('user_data', JSON.stringify(parsedUserData));
+        }
+      } catch (err) {
+        console.error('Error updating user data with role:', err);
       }
       
       return {
         success: true,
-        profile: response.data
+        profile: profileData
       };
     }
     
@@ -210,7 +288,39 @@ export const getCurrentUserProfile = async () => {
 // Update current user profile
 export const updateUserProfile = async (profileData) => {
   try {
-    const response = await apiClient.put('/api/users/profile', profileData);
+    // First try to get the user ID from various sources
+    // (similar to what we did in MainScreen.js)
+    let userId = null;
+
+    // Try to get user ID directly first
+    userId = await AsyncStorage.getItem('userId');
+    
+    // If not found, try the alternate key
+    if (!userId) {
+      userId = await AsyncStorage.getItem('userID');
+    }
+    
+    // If still not found, try getting it from user_data
+    if (!userId) {
+      const userData = await AsyncStorage.getItem('user_data');
+      if (userData) {
+        const user = JSON.parse(userData);
+        userId = user.userID || user.userId;
+      }
+    }
+    
+    // Make sure we have a user ID
+    if (!userId) {
+      throw new Error('User ID not found in stored data');
+    }
+
+    console.log('Updating profile with userId:', userId);
+    
+    // Now make the API call with the user ID included
+    const response = await apiClient.put('/api/users/profile', {
+      ...profileData,
+      user_id: userId
+    });
     
     if (response.status === 200) {
       return {

@@ -1,11 +1,11 @@
 import axios from 'axios';
 
 // Development machine IP - Update this to your current IP address
-export const DEV_MACHINE_IP = '192.168.137.1';
+export const DEV_MACHINE_IP = '10.143.4.6';
 
 // API URL Configuration
 // Using same server base URL for API and sockets
-export const API_URL = 'http://192.168.137.1:8000';  // Physical device over hotspot
+export const API_URL = 'http://10.143.4.6:5000';  // Backend server address
 
 // Socket URL for legacy code
 export const SOCKET_URL = API_URL;
@@ -13,7 +13,7 @@ export const SOCKET_URL = API_URL;
 // Create axios instance
 export const apiClient = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 30000,  // Increase default timeout to 30 seconds for handling image uploads
   headers: {
     'Content-Type': 'application/json',
   },

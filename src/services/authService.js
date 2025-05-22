@@ -175,10 +175,22 @@ export const login = async (credentials) => {
     const refresh_token = response.data.refresh_token;
     const user_id = response.data.user_id;
     
-    // Store authentication data
+    // Store authentication data - use consistent naming (both userID and userId) 
+    // to prevent issues with existing code using either convention
     await AsyncStorage.setItem('authToken', token);
     await AsyncStorage.setItem('refreshToken', refresh_token);
     await AsyncStorage.setItem('userId', user_id.toString());
+    await AsyncStorage.setItem('userID', user_id.toString());
+    
+    // Store user data for use throughout the app
+    const userData = {
+      userID: user_id,
+      userId: user_id,
+      username: username,
+      authenticated: true
+    };
+    
+    await AsyncStorage.setItem('user_data', JSON.stringify(userData));
     
     // Update API client authorization header
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -202,39 +214,83 @@ export const login = async (credentials) => {
 };
 
 /**
- * Register a new user
+ * Register a new user with required credentials and profile information
  * @param {Object} userData - User data object
+ * @param {string} userData.fullName - User's full name 
+ * @param {string} userData.username - Username
+ * @param {string} userData.email - Email address
+ * @param {string} userData.password - Password
+ * @param {string} userData.gender - Gender
+ * @param {number} userData.height - Height in cm
+ * @param {number} userData.weight - Weight in kg
+ * @param {string} userData.birth_date - Date of birth (DD.MM.YYYY)
+ * @param {string} userData.fitness_goal - Fitness goal
+ * @param {string} userData.activity_level - Activity level
  * @returns {Object} - { success: boolean, data?: Object, error?: string }
  */
 export const register = async (userData) => {
   try {
-    // Map the userData to match the expected API format
-    const payload = {
+    // Map the frontend field names to backend field names where needed
+    const requestData = {
       full_name: userData.fullName,
       username: userData.username,
       password: userData.password,
       email: userData.email,
-      gender: userData.gender || "",
-      height: userData.height || 0,
-      weight: userData.weight || 0,
-      birth_date: userData.birthDate || "",
-      fitness_goal: userData.fitnessGoal || "",
-      activity_level: userData.activityLevel || "",
-      role: userData.role || "user"
+      gender: userData.gender,
+      height: userData.height,
+      weight: userData.weight,
+      birth_date: userData.birth_date,
+      fitness_goal: userData.fitness_goal, 
+      activity_level: userData.activity_level
     };
 
-    const response = await apiClient.post('/api/auth/register', payload);
+    console.log('Sending registration data to API:', {
+      ...requestData,
+      password: '***' // Hide password in logs
+    });
+
+    const response = await apiClient.post('/api/auth/register', requestData);
     
-    console.log('Registration successful:', response.data);
+    console.log('Register response:', JSON.stringify(response.data));
     
-    // If auto-login after registration is desired,
-    // you can call login here with the username and password
+    if (response.status === 201) {
+      // Extract user data and token
+      const token = response.data.token;
+      const refresh_token = response.data.refresh_token;
+      const user_id = response.data.user_id;
+      
+      // Store authentication data - use consistent naming
+      await AsyncStorage.setItem('authToken', token);
+      await AsyncStorage.setItem('refreshToken', refresh_token);
+      await AsyncStorage.setItem('userId', user_id.toString());
+      await AsyncStorage.setItem('userID', user_id.toString());
+      
+      // Store minimal user data - include both versions of ID
+      const user = {
+        userID: user_id,
+        userId: user_id,
+        username: userData.username,
+        email: userData.email,
+        fullName: userData.fullName,
+        authenticated: true,
+        hasProfile: true // User is registered with profile data
+      };
+      
+      await AsyncStorage.setItem('user_data', JSON.stringify(user));
+      
+      return {
+        success: true,
+        message: 'Registration successful',
+        data: response.data
+      };
+    }
     
     return {
-      success: true,
-      data: response.data
+      success: false,
+      message: 'Registration failed'
     };
   } catch (error) {
+    console.error('Registration error:', error);
     return handleApiError(error);
   }
 };
@@ -283,7 +339,12 @@ export const isAuthenticated = async () => {
  */
 export const getCurrentUserId = async () => {
   try {
-    return await AsyncStorage.getItem('userId');
+    // Try both ID formats to support existing code
+    let userId = await AsyncStorage.getItem('userId');
+    if (!userId) {
+      userId = await AsyncStorage.getItem('userID');
+    }
+    return userId;
   } catch (error) {
     console.error('Get user ID error:', error);
     return null;

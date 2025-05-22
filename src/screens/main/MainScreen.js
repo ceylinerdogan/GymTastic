@@ -14,16 +14,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 import profileService from '../../services/profileService';
 import workoutService from '../../services/workoutService';
+import { apiClient } from '../../services/apiConfig';
 
 const MainScreen = ({ route, navigation }) => {
   // User profile data
   const [userData, setUserData] = useState({
-    name: '',
-    surname: '',
+    fullName: '',
     gender: '',
     dob: '',
-    weight: '',
-    height: '',
+    weight: 0,
+    height: 0,
     bmi: '',
     dailyCalories: '',
     goal: '',
@@ -55,28 +55,105 @@ const MainScreen = ({ route, navigation }) => {
     const fetchUserData = async () => {
       setIsLoading(true);
       try {
-        // Get user profile data
-        const userData = await AsyncStorage.getItem('user_data');
-        if (!userData) {
-          throw new Error('No user data found');
+        // Try to get user ID directly first (more reliable)
+        let userId = await AsyncStorage.getItem('userId');
+        
+        // If not found, try the alternate key
+        if (!userId) {
+          userId = await AsyncStorage.getItem('userID');
         }
         
-        const user = JSON.parse(userData);
-        if (!user.userID) {
-          throw new Error('User ID not found in stored data');
+        // If still not found, try getting it from user_data
+        if (!userId) {
+          const userData = await AsyncStorage.getItem('user_data');
+          if (userData) {
+            const user = JSON.parse(userData);
+            userId = user.userID || user.userId;
+          }
         }
+        
+        // If we still don't have a user ID, we can't proceed
+        if (!userId) {
+          throw new Error('User ID not found in any storage location');
+        }
+        
+        console.log('Found user ID:', userId);
         
         // Get user profile
-        const profileResponse = await profileService.getProfile(user.userID);
+        const profileResponse = await profileService.getProfile(userId);
         console.log('Profile response in MainScreen:', profileResponse);
         
         if (profileResponse.success && profileResponse.profile) {
           const profile = profileResponse.profile;
+          
+          // Fix for profile data parsing - ensure values are properly parsed
+          const height = profile.height ? parseFloat(profile.height) : 0;
+          const weight = profile.weight ? parseFloat(profile.weight) : 0;
+          
           // Calculate BMI if height and weight are available
-          let bmi = '';
-          if (profile.height && profile.weight) {
-            const heightInMeters = profile.height / 100;
-            bmi = (profile.weight / (heightInMeters * heightInMeters)).toFixed(1);
+          let bmi = '0';
+          if (height > 0 && weight > 0) {
+            const heightInMeters = height / 100;
+            bmi = (weight / (heightInMeters * heightInMeters)).toFixed(1);
+          }
+          
+          // Calculate daily calorie needs based on Harris-Benedict formula
+          let dailyCalories = '0';
+          if (profile.gender && height > 0 && weight > 0 && profile.birth_date) {
+            try {
+              // Parse birth date to calculate age
+              let birthDate;
+              if (profile.birth_date.includes('T')) {
+                // ISO format
+                birthDate = new Date(profile.birth_date.split('T')[0]);
+              } else if (profile.birth_date.includes('.')) {
+                // DD.MM.YYYY format
+                const parts = profile.birth_date.split('.');
+                birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
+              } else if (profile.birth_date.includes('-')) {
+                // YYYY-MM-DD format
+                birthDate = new Date(profile.birth_date);
+              }
+              
+              const today = new Date();
+              let age = today.getFullYear() - birthDate.getFullYear();
+              
+              // Adjust age if birthday hasn't occurred yet this year
+              const monthDiff = today.getMonth() - birthDate.getMonth();
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+              }
+              
+              // Harris-Benedict formula for BMR
+              let bmr = 0;
+              
+              if (profile.gender.toLowerCase() === 'male') {
+                bmr = 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age);
+              } else if (profile.gender.toLowerCase() === 'female') {
+                bmr = 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age);
+              }
+              
+              // Apply activity multiplier
+              let activityMultiplier = 1.2; // Default: sedentary
+              const activityLevel = profile.activity_level ? profile.activity_level.toLowerCase() : '';
+              
+              if (activityLevel.includes('sedentary')) {
+                activityMultiplier = 1.2;
+              } else if (activityLevel.includes('light') || activityLevel.includes('beginner')) {
+                activityMultiplier = 1.375;
+              } else if (activityLevel.includes('moderate')) {
+                activityMultiplier = 1.55;
+              } else if (activityLevel.includes('very')) {
+                activityMultiplier = 1.725;
+              } else if (activityLevel.includes('extra')) {
+                activityMultiplier = 1.9;
+              }
+              
+              dailyCalories = Math.round(bmr * activityMultiplier).toString();
+            } catch (error) {
+              console.error('Error calculating daily calories:', error);
+              dailyCalories = '0';
+            }
           }
           
           // Split full name into first name and surname
@@ -96,30 +173,30 @@ const MainScreen = ({ route, navigation }) => {
           }
           
           setUserData({
-            name: firstName,
-            surname: surname,
+            fullName : profile.full_name || '',
             gender: profile.gender || '',
             dob: profile.birth_date || '',
-            weight: profile.weight ? String(profile.weight) : '0',
-            height: profile.height ? String(profile.height) : '0',
-            bmi: bmi || '0',
-            dailyCalories: '0', // Not tracked yet
+            weight: weight ,
+            height: height ,
+            bmi: bmi,
+            dailyCalories: dailyCalories,
             goal: profile.fitness_goal || '',
             activityLevel: profile.activity_level || '',
             profileImageUri: profilePic
           });
           
           console.log('User data set:', {
-            name: firstName,
-            surname: surname,
+            fullName: profile.full_name || '',
             gender: profile.gender || '',
-            weight: profile.weight ? String(profile.weight) : '0',
-            height: profile.height ? String(profile.height) : '0'
+            weight: weight ,
+            height: height ,
+            bmi: bmi,
+            dailyCalories: dailyCalories
           });
         } else if (route.params) {
           // Fallback to route params
           setUserData({
-            name: route.params.name || '',
+            fullName: route.params.name || '',
             surname: route.params.surname || '',
             gender: route.params.gender || '',
             dob: route.params.dob || '',
@@ -347,6 +424,121 @@ const MainScreen = ({ route, navigation }) => {
     );
   };
 
+  // Add a direct API call to fetch profile when component mounts
+  useEffect(() => {
+    const fetchDirectProfile = async () => {
+      try {
+        // Get the auth token
+        const token = await AsyncStorage.getItem('authToken');
+        if (token) {
+          // Set the Authorization header
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+        
+        console.log("Attempting direct API call to fetch profile...");
+        // Make a direct API call to fetch the profile
+        const response = await apiClient.get('/api/users/profile');
+        console.log("Direct API response:", JSON.stringify(response.data, null, 2));
+        
+        if (response.data && response.data.profile) {
+          const profile = response.data.profile;
+          console.log("Direct profile data:", JSON.stringify(profile, null, 2));
+          
+          // Calculate BMI
+          let bmi = '0';
+          if (profile.height && profile.weight) {
+            const heightInMeters = profile.height < 3 ? profile.height : profile.height / 100;
+            bmi = (profile.weight / (heightInMeters * heightInMeters)).toFixed(1);
+          }
+          
+          // Update state with the profile data
+          setUserData({
+            fullName: profile.full_name || '',
+            gender: profile.gender || '',
+            dob: profile.birth_date || '',
+            weight: profile.weight || 0,
+            height: profile.height || 0,
+            bmi: bmi,
+            dailyCalories: '2000', // Default value for now
+            goal: profile.fitness_goal || '',
+            activityLevel: profile.activity_level || '',
+            profileImageUri: profile.profilepic || null
+          });
+          
+          console.log("Updated userData state with:", {
+            fullName: profile.full_name,
+            weight: profile.weight,
+            height: profile.height
+          });
+        } else if (response.data) {
+          // If API returns different format, try to extract from top level
+          const profile = response.data;
+          console.log("Alternative profile data structure:", JSON.stringify(profile, null, 2));
+          
+          // Calculate BMI
+          let bmi = '0';
+          if (profile.height && profile.weight) {
+            const heightInMeters = profile.height < 3 ? profile.height : profile.height / 100;
+            bmi = (profile.weight / (heightInMeters * heightInMeters)).toFixed(1);
+          }
+          
+          // Update state with the profile data from top level
+          setUserData({
+            fullName: profile.full_name || '',
+            gender: profile.gender || '',
+            dob: profile.birth_date || '',
+            weight: profile.weight || 0,
+            height: profile.height || 0,
+            bmi: bmi,
+            dailyCalories: '2000', // Default value for now
+            goal: profile.fitness_goal || '',
+            activityLevel: profile.activity_level || '',
+            profileImageUri: profile.profilepic || null
+          });
+        }
+      } catch (error) {
+        console.error("Error in direct API call:", error);
+        console.log("Error details:", error.response?.data || error.message);
+        
+        // Attempt to fall back to profile service method
+        try {
+          console.log("Falling back to profileService method...");
+          const userId = await AsyncStorage.getItem('userId') || await AsyncStorage.getItem('userID');
+          if (userId) {
+            const profileResponse = await profileService.getProfile(userId);
+            console.log("Profile service response:", JSON.stringify(profileResponse, null, 2));
+            
+            if (profileResponse.success && profileResponse.profile) {
+              const profile = profileResponse.profile;
+              
+              setUserData({
+                fullName: profile.full_name || '',
+                gender: profile.gender || '',
+                dob: profile.birth_date || '',
+                weight: profile.weight || 0,
+                height: profile.height || 0,
+                bmi: profileResponse.profile.bmi || '0',
+                dailyCalories: '2000',
+                goal: profile.fitness_goal || '',
+                activityLevel: profile.activity_level || '',
+                profileImageUri: profile.profilepic || null
+              });
+            }
+          }
+        } catch (fallbackError) {
+          console.error("Fallback attempt failed:", fallbackError);
+        }
+      }
+    };
+    
+    fetchDirectProfile();
+  }, []);
+
+  // Add logging to see what userData contains when rendering
+  useEffect(() => {
+    console.log("Current userData in render:", JSON.stringify(userData));
+  }, [userData]);
+
   return (
     <LinearGradient colors={['#A95CF1', '#DB6FDF']} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -360,14 +552,13 @@ const MainScreen = ({ route, navigation }) => {
             {/* Welcome Section */}
             <View style={styles.header}>
               <View>
-                <Text style={styles.greeting}>Hi, {userData.name} {userData.surname}</Text>
+                <Text style={styles.greeting}>Hi, {userData.fullName || 'User'}</Text>
                 <Text style={styles.subtitle}>Let's check your activity</Text>
               </View>
               <TouchableOpacity 
                 style={styles.profileButton}
                 onPress={() => navigation.navigate('Profile', { 
-                  name: userData.name, 
-                  surname: userData.surname, 
+                  fullName: userData.fullName,
                   gender: userData.gender, 
                   dob: userData.dob, 
                   weight: userData.weight, 
@@ -434,21 +625,31 @@ const MainScreen = ({ route, navigation }) => {
               <Text style={styles.sectionTitle}>Health Metrics</Text>
               <View style={styles.metricsRow}>
                 <View style={styles.metricCard}>
-                  <Text style={styles.metricValue}>{userData.weight} kg</Text>
+                  <Text style={styles.metricValue}>
+                    {userData.weight ? `${userData.weight} kg` : 'N/A'}
+                  </Text>
                   <Text style={styles.metricLabel}>Weight</Text>
                 </View>
                 <View style={styles.metricCard}>
-                  <Text style={styles.metricValue}>{userData.height} cm</Text>
+                  <Text style={styles.metricValue}>
+                    {userData.height ? 
+                      `${userData.height < 3 ? Math.round(userData.height * 100) : userData.height} cm` 
+                      : 'N/A'}
+                  </Text>
                   <Text style={styles.metricLabel}>Height</Text>
                 </View>
                 <View style={styles.metricCard}>
-                  <Text style={styles.metricValue}>{userData.bmi}</Text>
+                  <Text style={styles.metricValue}>
+                    {userData.bmi && parseFloat(userData.bmi) > 0 ? userData.bmi : 'N/A'}
+                  </Text>
                   <Text style={styles.metricLabel}>BMI</Text>
                 </View>
               </View>
               <View style={styles.metricsRow}>
                 <View style={[styles.metricCard, styles.wideMetricCard]}>
-                  <Text style={styles.metricValue}>{userData.dailyCalories}</Text>
+                  <Text style={styles.metricValue}>
+                    {userData.dailyCalories && parseFloat(userData.dailyCalories) > 0 ? `${userData.dailyCalories} kcal` : 'N/A'}
+                  </Text>
                   <Text style={styles.metricLabel}>Daily Calorie Need</Text>
                 </View>
               </View>

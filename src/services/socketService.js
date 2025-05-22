@@ -6,7 +6,7 @@ let socket;
 let currentSessionId;
 let isConnected = false;
 let connectionAttempts = 0;
-const MAX_RECONNECTION_ATTEMPTS = 3;
+const MAX_RECONNECTION_ATTEMPTS = 5;
 
 // Initialize socket connection
 export const initSocket = () => {
@@ -14,20 +14,29 @@ export const initSocket = () => {
     try {
       console.log('Initializing socket connection to:', SOCKET_URL);
       
-      // Initialize socket with better reconnection settings
+      // Enhanced socket configuration for better connection stability
+      // and compatibility with different server implementations
       socket = io(SOCKET_URL, {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],  // Try websocket first, fallback to polling
         reconnection: true,
-        reconnectionAttempts: 10,      // More reconnection attempts
-        reconnectionDelay: 1000,       // Start with shorter delay
-        reconnectionDelayMax: 5000,    // Maximum reconnection delay
-        timeout: 20000,                // Longer timeout
-        forceNew: false,               // Reuse existing connections if possible
-        upgrade: true                  // Allow transport upgrades
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        forceNew: true,           // Force a new connection to avoid cached issues
+        upgrade: true,
+        // Additional options for stability with different server implementations
+        path: '/socket.io',       // Default Socket.io path
+        autoConnect: true,
+        rejectUnauthorized: false // Allow self-signed certificates
       });
       
       socket.io.on("reconnect_attempt", (attempt) => {
         console.log(`[Socket] Reconnection attempt ${attempt}`);
+        // On later reconnection attempts, try with polling as fallback
+        if (attempt > 2) {
+          socket.io.opts.transports = ['polling', 'websocket'];
+        }
       });
       
       socket.on('connect', () => {
@@ -69,7 +78,9 @@ export const initSocket = () => {
         // For certain disconnect reasons, try to manually reconnect
         if (reason === 'io server disconnect' || reason === 'ping timeout') {
           console.log('[Socket] Server forced disconnect, attempting manual reconnection');
-          socket.connect();
+          setTimeout(() => {
+            socket.connect();
+          }, 1000); // Add delay before reconnection attempt
         }
       });
       
@@ -86,11 +97,19 @@ export const initSocket = () => {
         if (connectionAttempts >= MAX_RECONNECTION_ATTEMPTS) {
           console.log('Max reconnection attempts reached, stopping reconnection');
           socket.disconnect();
+          
+          // Reset socket instance to allow for future connection attempts
+          socket = null;
+        } else if (connectionAttempts > 2) {
+          // After a few failed attempts, try different connection strategy
+          console.log('Trying alternative connection strategy');
+          socket.io.opts.transports = ['polling', 'websocket'];
         }
       });
     } catch (err) {
       console.error('Socket initialization error:', err.message || 'Unknown error');
       isConnected = false;
+      socket = null;
     }
   }
   return socket;

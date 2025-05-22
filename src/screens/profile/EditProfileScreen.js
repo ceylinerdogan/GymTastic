@@ -90,28 +90,25 @@ const EditProfileScreen = ({ navigation, route }) => {
   const [heightError, setHeightError] = useState('');
 
   // Gender options
+  const fitnessGoals = [
+    { label: 'Lose Weight', value: 'lose_weight' },
+    { label: 'Gain Muscle', value: 'gain_muscle' },
+    { label: 'Cardio', value: 'cardio' },
+  ];
+  
+  // Activity level options
+  const activityLevels = [
+    { label: 'Beginner', value: 'beginner' },
+    { label: 'Intermediate', value: 'intermediate' },
+    { label: 'Advance', value: 'advance' },
+  ];
+  
+  // Gender options
   const genderOptions = [
     { label: 'Male', value: 'Male' },
     { label: 'Female', value: 'Female' },
     { label: 'Other', value: 'Other' },
     { label: 'Prefer not to say', value: 'Not_specified' },
-  ];
-
-  // Fitness goal options
-  const fitnessGoals = [
-    { label: 'Lose Weight', value: 'lose_weight' },
-    { label: 'Build Muscle', value: 'build_muscle' },
-    { label: 'Improve Fitness', value: 'improve_fitness' },
-    { label: 'Maintain Health', value: 'maintain_health' },
-  ];
-
-  // Activity level options
-  const activityLevels = [
-    { label: 'Sedentary (little or no exercise)', value: 'sedentary' },
-    { label: 'Lightly active (light exercise 1-3 days/week)', value: 'light' },
-    { label: 'Moderately active (moderate exercise 3-5 days/week)', value: 'moderate' },
-    { label: 'Very active (hard exercise 6-7 days/week)', value: 'very_active' },
-    { label: 'Extra active (very hard exercise & physical job)', value: 'extra_active' },
   ];
 
   const validateName = (name) => {
@@ -253,19 +250,102 @@ const EditProfileScreen = ({ navigation, route }) => {
     try {
       if (!uri) return null;
       
+      // Server limit is now 32MB (32 * 1024 * 1024 bytes)
+      const SERVER_SIZE_LIMIT = 32 * 1024 * 1024; // 32MB
+      
       if (uri.startsWith('data:image')) {
+        // It's already base64, but let's check the size
+        const base64Length = uri.length;
+        const sizeInBytes = (base64Length - 22) * 0.75; // Rough estimate
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+        
+        console.log(`Profile image size: ~${sizeInMB.toFixed(2)}MB`);
+        
+        // If already in base64 and too large, inform the user
+        if (sizeInBytes > SERVER_SIZE_LIMIT) {
+          Alert.alert(
+            'Image Too Large',
+            'Your image exceeds the server limit of 32MB. Please choose a smaller image.',
+            [{ text: 'OK' }]
+          );
+        }
         return uri;
       }
       
-      const base64Data = await RNFS.readFile(uri, 'base64');
-      if (!base64Data) {
-        throw new Error('Failed to read image file');
+      // Define quality and size options to maintain reasonable quality
+      const options = {
+        quality: 0.7, // Better quality since server limit is higher
+        width: 800,   // Larger dimensions for better quality
+        height: 800   // Larger dimensions for better quality
+      };
+
+      let base64Data;
+      let mimeType = 'image/jpeg';
+      
+      // Check if we can use react-native-image-resizer
+      let canUseResizer = false;
+      try {
+        // Just check if the module exists, don't actually require it yet
+        canUseResizer = !!require.resolve('react-native-image-resizer');
+      } catch (e) {
+        canUseResizer = false;
       }
       
-      const extension = uri.split('.').pop().toLowerCase();
-      const mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
+      if (canUseResizer) {
+        try {
+          // Only require the module if we know it exists
+          const ImageResizer = require('react-native-image-resizer');
+          console.log('Using ImageResizer to compress image');
+          
+          const resizedImage = await ImageResizer.createResizedImage(
+            uri,
+            options.width,
+            options.height,
+            'JPEG',
+            options.quality
+          );
+          
+          // Read the resized image
+          base64Data = await RNFS.readFile(resizedImage.uri, 'base64');
+        } catch (resizeError) {
+          console.log('Image resizing failed, falling back to original:', resizeError);
+          // Continue to fallback method
+          base64Data = null;
+        }
+      }
       
-      return `data:${mimeType};base64,${base64Data}`;
+      // If resizing failed or wasn't available, use original method
+      if (!base64Data) {
+        console.log('Using original image without resizing');
+        base64Data = await RNFS.readFile(uri, 'base64');
+        
+        if (!base64Data) {
+          throw new Error('Failed to read image file');
+        }
+        
+        const extension = uri.split('.').pop().toLowerCase();
+        mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
+      }
+      
+      const result = `data:${mimeType};base64,${base64Data}`;
+      
+      // Calculate and log the size of the final image
+      const resultSize = (result.length - 22) * 0.75;
+      const resultSizeMB = resultSize / (1024 * 1024);
+      console.log(`Final image size: ~${resultSizeMB.toFixed(2)}MB (${resultSize} bytes)`);
+      
+      // Check against server limit
+      if (resultSize > SERVER_SIZE_LIMIT) {
+        Alert.alert(
+          'Image Too Large',
+          'Your image exceeds the server limit of 32MB even after compression. Please choose a smaller image or try without an image.',
+          [{ text: 'OK' }]
+        );
+        // Return null to indicate we should not use this image
+        return null;
+      }
+      
+      return result;
     } catch (error) {
       console.error('Error converting image to base64:', error);
       throw error;
@@ -283,23 +363,36 @@ const EditProfileScreen = ({ navigation, route }) => {
       setIsLoading(true);
       
       try {
-        // Get current user ID from user_data in AsyncStorage
-        const userData = await AsyncStorage.getItem('user_data');
+        // Enhanced user ID retrieval that checks multiple storage locations
+        let userId = null;
         
-        if (!userData) {
-          throw new Error('User data not found');
+        // Try to get user ID directly first (more reliable)
+        userId = await AsyncStorage.getItem('userId');
+        
+        // If not found, try the alternate key
+        if (!userId) {
+          userId = await AsyncStorage.getItem('userID');
         }
         
-        const user = JSON.parse(userData);
-        if (!user.userID) {
-          throw new Error('User ID not found in stored data');
+        // If still not found, try getting it from user_data
+        if (!userId) {
+          const userData = await AsyncStorage.getItem('user_data');
+          if (userData) {
+            const user = JSON.parse(userData);
+            userId = user.userID || user.userId;
+          }
         }
         
-        console.log('About to update profile for user:', user.userID);
+        // If we still don't have a user ID, we can't proceed
+        if (!userId) {
+          throw new Error('User ID not found in any storage location');
+        }
+        
+        console.log('About to update profile for user ID:', userId);
         
         // Create profile update data with field names matching the backend API
         const profileData = {
-          userID: user.userID,
+          userID: userId,
           full_name: `${profileName} ${profileSurname}`.trim(),
           gender: profileGender || '',
           birth_date: profileDob || '',
@@ -312,13 +405,32 @@ const EditProfileScreen = ({ navigation, route }) => {
         // Handle profile image conversion if it's a file URI
         if (profileImage) {
           try {
+            let base64Image = null;
+            
             if (profileImage.startsWith('file:') || profileImage.startsWith('content:')) {
               console.log('Converting image file to base64...');
-              const base64Image = await convertImageToBase64(profileImage);
-              profileData.profilepic = base64Image;
+              base64Image = await convertImageToBase64(profileImage);
             } else if (profileImage.startsWith('data:image')) {
-              // Already in base64 format
-              profileData.profilepic = profileImage;
+              // Already in base64 format but still check size
+              const base64Length = profileImage.length;
+              const sizeInBytes = (base64Length - 22) * 0.75;
+              if (sizeInBytes > 32 * 1024 * 1024) { // 32MB limit
+                Alert.alert(
+                  'Image Too Large',
+                  'Your image exceeds the server limit of 32MB. Profile will be updated without the image.',
+                  [{ text: 'OK' }]
+                );
+                base64Image = null;
+              } else {
+                base64Image = profileImage;
+              }
+            }
+            
+            // Only include image if we have a valid one within size limits
+            if (base64Image) {
+              profileData.profilepic = base64Image;
+            } else {
+              console.log('Image excluded due to size limits');
             }
           } catch (imageError) {
             console.error('Failed to process image:', imageError);
@@ -333,7 +445,7 @@ const EditProfileScreen = ({ navigation, route }) => {
         console.log('Sending profile update data with image included:', profileData.profilepic ? 'Yes' : 'No');
         
         // Update profile using profileService
-        const response = await profileService.updateProfile(user.userID, profileData);
+        const response = await profileService.updateProfile(userId, profileData);
         
         if (response.success) {
           console.log('Profile updated successfully', response.profile);

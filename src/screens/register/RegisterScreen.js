@@ -11,26 +11,68 @@ import {
     Platform,
     TouchableWithoutFeedback,
     Keyboard,
-    Alert
+    Alert,
+    ScrollView
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import authService from '../../services/authService';
+import { Dropdown } from 'react-native-element-dropdown';
+
+// Fitness goal options
+const fitnessGoals = [
+  { label: 'Lose Weight', value: 'lose_weight' },
+  { label: 'Gain Muscle', value: 'gain_muscle' },
+  { label: 'Cardio', value: 'cardio' },
+];
+
+// Activity level options
+const activityLevels = [
+  { label: 'Beginner', value: 'beginner' },
+  { label: 'Intermediate', value: 'intermediate' },
+  { label: 'Advance', value: 'advance' },
+];
+
+// Gender options
+const genderOptions = [
+  { label: 'Male', value: 'Male' },
+  { label: 'Female', value: 'Female' },
+  { label: 'Other', value: 'Other' },
+  { label: 'Prefer not to say', value: 'Not_specified' },
+];
 
 const RegisterScreen = ({ navigation }) => {
+    // Basic Account Fields
     const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
     const [fullName, setFullName] = useState('');
     
-    // Form validation state
+    // Profile Fields
+    const [gender, setGender] = useState(null);
+    const [birthDate, setBirthDate] = useState('');
+    const [weight, setWeight] = useState('');
+    const [height, setHeight] = useState('');
+    const [fitnessGoal, setFitnessGoal] = useState(null);
+    const [activityLevel, setActivityLevel] = useState(null);
+    
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // Basic Account Validation States
     const [emailError, setEmailError] = useState('');
     const [usernameError, setUsernameError] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [confirmPasswordError, setConfirmPasswordError] = useState('');
     const [fullNameError, setFullNameError] = useState('');
+    
+    // Profile Validation States
+    const [genderError, setGenderError] = useState('');
+    const [birthDateError, setBirthDateError] = useState('');
+    const [weightError, setWeightError] = useState('');
+    const [heightError, setHeightError] = useState('');
+    const [fitnessGoalError, setFitnessGoalError] = useState('');
+    const [activityLevelError, setActivityLevelError] = useState('');
     
     // Password strength indicators
     const [passwordStrength, setPasswordStrength] = useState({
@@ -128,6 +170,78 @@ const RegisterScreen = ({ navigation }) => {
             return false;
         }
         setFullNameError('');
+        return true;
+    };
+
+    // Profile Field Validation Functions
+    const validateGender = (gender) => {
+        if (!gender) {
+            setGenderError('Please select your gender');
+            return false;
+        }
+        setGenderError('');
+        return true;
+    };
+
+    const validateBirthDate = (date) => {
+        // Basic date format validation (DD.MM.YYYY)
+        const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\.(0[1-9]|1[0-2])\.\d{4}$/;
+        if (!date) {
+            setBirthDateError('Date of birth is required');
+            return false;
+        } else if (!dateRegex.test(date)) {
+            setBirthDateError('Please use format: DD.MM.YYYY');
+            return false;
+        }
+        setBirthDateError('');
+        return true;
+    };
+
+    const validateWeight = (weight) => {
+        if (!weight) {
+            setWeightError('Weight is required');
+            return false;
+        } else if (isNaN(weight) || parseFloat(weight) <= 0) {
+            setWeightError('Please enter a valid weight');
+            return false;
+        } else if (parseFloat(weight) < 30 || parseFloat(weight) > 300) {
+            setWeightError('Weight should be between 30-300kg');
+            return false;
+        }
+        setWeightError('');
+        return true;
+    };
+
+    const validateHeight = (height) => {
+        if (!height) {
+            setHeightError('Height is required');
+            return false;
+        } else if (isNaN(height) || parseFloat(height) <= 0) {
+            setHeightError('Please enter a valid height');
+            return false;
+        } else if (parseFloat(height) < 100 || parseFloat(height) > 250) {
+            setHeightError('Height should be between 100-250cm');
+            return false;
+        }
+        setHeightError('');
+        return true;
+    };
+
+    const validateFitnessGoal = (goal) => {
+        if (!goal) {
+            setFitnessGoalError('Please select your fitness goal');
+            return false;
+        }
+        setFitnessGoalError('');
+        return true;
+    };
+
+    const validateActivityLevel = (level) => {
+        if (!level) {
+            setActivityLevelError('Please select your activity level');
+            return false;
+        }
+        setActivityLevelError('');
         return true;
     };
 
@@ -248,52 +362,73 @@ const RegisterScreen = ({ navigation }) => {
     };
 
     const handleRegister = async () => {
-        // Validate inputs
+        // Validate basic account fields
         const isFullNameValid = validateFullName(fullName);
         const isUsernameValid = validateUsername(username);
         const isPasswordValid = validatePassword(password);
         const isConfirmPasswordValid = validateConfirmPassword(password, confirmPassword);
         const isEmailValid = validateEmail(email);
 
-        if (isFullNameValid && isUsernameValid && isPasswordValid && isConfirmPasswordValid && isEmailValid) {
+        // Validate profile fields
+        const isGenderValid = validateGender(gender);
+        const isBirthDateValid = validateBirthDate(birthDate);
+        const isWeightValid = validateWeight(weight);
+        const isHeightValid = validateHeight(height);
+        const isFitnessGoalValid = validateFitnessGoal(fitnessGoal);
+        const isActivityLevelValid = validateActivityLevel(activityLevel);
+
+        // Check if all validations passed
+        const isFormValid = 
+            isFullNameValid && isUsernameValid && isPasswordValid && 
+            isConfirmPasswordValid && isEmailValid && isGenderValid && 
+            isBirthDateValid && isWeightValid && isHeightValid && 
+            isFitnessGoalValid && isActivityLevelValid;
+
+        if (isFormValid) {
             setIsLoading(true);
             dismissKeyboard();
             
             try {
-                // Log the registration data
-                console.log('Registering with data:', {
-                    full_name: fullName,
+                // Prepare registration data with all required fields
+                const registrationData = {
+                    fullName: fullName,
                     username: username,
+                    password: password,
                     email: email,
-                    password: '***'
+                    gender: gender,
+                    height: parseFloat(height),
+                    weight: parseFloat(weight),
+                    birth_date: birthDate,
+                    fitness_goal: fitnessGoal,
+                    activity_level: activityLevel
+                };
+                
+                console.log('Registering with data:', {
+                    ...registrationData,
+                    password: '***'  // Hide password in logs
                 });
                 
                 // Call the register API endpoint
-                const response = await authService.register({
-                    full_name: fullName,
-                    username: username,
-                    password: password,
-                    email: email
-                });
+                const response = await authService.register(registrationData);
                 
                 setIsLoading(false);
                 
                 if (response.success) {
-                    // Store minimal user data for CreateProfile screen
+                    // Store user data for use in the app
                     await authService.saveUserToStorage({
                         username: username,
                         authenticated: true,
-                        userID: response.user?.userID
+                        userID: response.data?.user_id
                     });
                     
-                    // Success - navigate to create profile
+                    // Success - navigate directly to main app
                     Alert.alert(
                         'Registration Successful',
                         'Your account has been created successfully!',
                         [
                             {
                                 text: 'Continue',
-                                onPress: () => navigation.navigate('CreateProfile')
+                                onPress: () => navigation.replace('Main')
                             }
                         ]
                     );
@@ -318,6 +453,9 @@ const RegisterScreen = ({ navigation }) => {
                     );
                 }
             }
+        } else {
+            // Form is invalid, scroll to first error
+            // Handled by UI scroll
         }
     };
 
@@ -337,9 +475,30 @@ const RegisterScreen = ({ navigation }) => {
         return '#4CD964';
     };
 
+    const calculateBMI = () => {
+        if (weight && height) {
+            const weightNum = parseFloat(weight);
+            const heightNum = parseFloat(height) / 100; // Convert cm to m
+            const bmi = weightNum / (heightNum * heightNum);
+            return bmi.toFixed(1);
+        }
+        return null;
+    };
+
+    const getBMICategory = (bmi) => {
+        if (!bmi) return '';
+        if (bmi < 18.5) return 'Underweight';
+        if (bmi < 25) return 'Normal weight';
+        if (bmi < 30) return 'Overweight';
+        return 'Obese';
+    };
+
     const dismissKeyboard = () => {
         Keyboard.dismiss();
     };
+
+    const bmi = calculateBMI();
+    const bmiCategory = getBMICategory(bmi);
 
     return (
         <TouchableWithoutFeedback onPress={dismissKeyboard}>
@@ -349,174 +508,273 @@ const RegisterScreen = ({ navigation }) => {
                     style={styles.keyboardAvoidingView}
                 >
                     <SafeAreaView style={styles.safeArea}>
-                        <Text style={styles.title}>Create Account</Text>
-                        <Text style={styles.subtitle}>Join GymTastic to start your fitness journey</Text>
-                        
-                        {/* Google Sign Up Button */}
-                        <TouchableOpacity 
-                            style={styles.googleButton} 
-                            onPress={handleGoogleSignUp}
-                            disabled={isLoading}
+                        <ScrollView 
+                            style={styles.scrollView} 
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.scrollContent}
                         >
-                            <View style={styles.googleIconContainer}>
-                                <Text style={styles.googleIconText}>G</Text>
-                            </View>
-                            <Text style={styles.googleText}>Sign up with Google</Text>
-                        </TouchableOpacity>
-                        
-                        {/* Divider */}
-                        <View style={styles.dividerContainer}>
-                            <View style={styles.divider} />
-                            <Text style={styles.dividerText}>OR</Text>
-                            <View style={styles.divider} />
-                        </View>
-                        
-                        {/* Full Name Input */}
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                style={[styles.input, fullNameError ? styles.inputError : null]}
-                                placeholder="Full name"
-                                value={fullName}
-                                onChangeText={setFullName}
-                                placeholderTextColor="#999"
-                                autoCapitalize="words"
-                                onBlur={() => validateFullName(fullName)}
-                                maxLength={100}
-                            />
-                            {fullNameError ? <Text style={styles.errorText}>{fullNameError}</Text> : null}
-                        </View>
-                        
-                        {/* Email Input */}
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                style={[styles.input, emailError ? styles.inputError : null]}
-                                placeholder="Email address"
-                                value={email}
-                                onChangeText={setEmail}
-                                placeholderTextColor="#999"
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                onBlur={() => validateEmail(email)}
-                                maxLength={100}
-                            />
-                            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-                        </View>
-
-                        {/* Username Input */}
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                style={[styles.input, usernameError ? styles.inputError : null]}
-                                placeholder="Username"
-                                value={username}
-                                onChangeText={setUsername}
-                                placeholderTextColor="#999"
-                                autoCapitalize="none"
-                                onBlur={() => validateUsername(username)}
-                                maxLength={50}
-                            />
-                            {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
-                        </View>
-
-                        {/* Password Input */}
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                style={[styles.input, passwordError ? styles.inputError : null]}
-                                placeholder="Create password (8+ characters)"
-                                secureTextEntry
-                                value={password}
-                                onChangeText={(text) => {
-                                    setPassword(text);
-                                    checkPasswordStrength(text);
-                                }}
-                                placeholderTextColor="#999"
-                                onBlur={() => validatePassword(password)}
-                            />
-                            {password.length > 0 && (
-                                <View style={styles.passwordStrengthContainer}>
-                                    <View style={styles.passwordStrengthBar}>
-                                        <View 
-                                            style={[
-                                                styles.passwordStrengthIndicator, 
-                                                { 
-                                                    width: `${20 * passwordStrength.score}%`,
-                                                    backgroundColor: getPasswordStrengthColor() 
-                                                }
-                                            ]} 
-                                        />
-                                    </View>
-                                    <Text style={[styles.passwordStrengthText, { color: getPasswordStrengthColor() }]}>
-                                        {getPasswordStrengthText()}
-                                    </Text>
+                            <Text style={styles.title}>Create Account</Text>
+                            <Text style={styles.subtitle}>Join GymTastic to start your fitness journey</Text>
+                            
+                            {/* Google Sign Up Button */}
+                            <TouchableOpacity 
+                                style={styles.googleButton} 
+                                onPress={handleGoogleSignUp}
+                                disabled={isLoading}
+                            >
+                                <View style={styles.googleIconContainer}>
+                                    <Text style={styles.googleIconText}>G</Text>
                                 </View>
-                            )}
-                            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-                        </View>
-
-                        {/* Confirm Password Input */}
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                style={[styles.input, confirmPasswordError ? styles.inputError : null]}
-                                placeholder="Confirm password"
-                                secureTextEntry
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
-                                placeholderTextColor="#999"
-                                onBlur={() => validateConfirmPassword(password, confirmPassword)}
-                            />
-                            {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
-                        </View>
-
-                        {/* Password Requirements */}
-                        {password.length > 0 && (
-                            <View style={styles.passwordRequirementsContainer}>
-                                <Text style={styles.passwordRequirementsTitle}>Password should contain:</Text>
-                                <View style={styles.passwordRequirement}>
-                                    <Text style={[
-                                        styles.passwordRequirementText,
-                                        passwordStrength.hasMinLength ? styles.passwordRequirementMet : null
-                                    ]}>
-                                        ✓ At least 8 characters
-                                    </Text>
-                                </View>
-                                <View style={styles.passwordRequirement}>
-                                    <Text style={[
-                                        styles.passwordRequirementText,
-                                        passwordStrength.hasUpperCase ? styles.passwordRequirementMet : null
-                                    ]}>
-                                        ✓ Uppercase letter (A-Z)
-                                    </Text>
-                                </View>
-                                <View style={styles.passwordRequirement}>
-                                    <Text style={[
-                                        styles.passwordRequirementText,
-                                        passwordStrength.hasNumber ? styles.passwordRequirementMet : null
-                                    ]}>
-                                        ✓ Number (0-9)
-                                    </Text>
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Register Button */}
-                        <TouchableOpacity 
-                            style={styles.button} 
-                            onPress={handleRegister}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <ActivityIndicator color="#fff" size="small" />
-                            ) : (
-                                <Text style={styles.buttonText}>Create Account</Text>
-                            )}
-                        </TouchableOpacity>
-
-                        {/* Login Navigation */}
-                        <View style={styles.loginContainer}>
-                            <Text style={styles.loginPrompt}>Already have an account? </Text>
-                            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                                <Text style={styles.loginText}>Login</Text>
+                                <Text style={styles.googleText}>Sign up with Google</Text>
                             </TouchableOpacity>
-                        </View>
+                            
+                            {/* Divider */}
+                            <View style={styles.dividerContainer}>
+                                <View style={styles.divider} />
+                                <Text style={styles.dividerText}>OR</Text>
+                                <View style={styles.divider} />
+                            </View>
+                            
+                            {/* Part 1: Basic Account Information */}
+                            <Text style={styles.sectionTitle}>Account Information</Text>
+
+                            {/* Full Name Input */}
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={[styles.input, fullNameError ? styles.inputError : null]}
+                                    placeholder="Full name"
+                                    value={fullName}
+                                    onChangeText={setFullName}
+                                    placeholderTextColor="#999"
+                                    autoCapitalize="words"
+                                    onBlur={() => validateFullName(fullName)}
+                                    maxLength={100}
+                                />
+                                {fullNameError ? <Text style={styles.errorText}>{fullNameError}</Text> : null}
+                            </View>
+                            
+                            {/* Email Input */}
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={[styles.input, emailError ? styles.inputError : null]}
+                                    placeholder="Email address"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    placeholderTextColor="#999"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    onBlur={() => validateEmail(email)}
+                                    maxLength={100}
+                                />
+                                {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+                            </View>
+
+                            {/* Username Input */}
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={[styles.input, usernameError ? styles.inputError : null]}
+                                    placeholder="Username"
+                                    value={username}
+                                    onChangeText={setUsername}
+                                    placeholderTextColor="#999"
+                                    autoCapitalize="none"
+                                    onBlur={() => validateUsername(username)}
+                                    maxLength={50}
+                                />
+                                {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
+                            </View>
+
+                            {/* Password Input */}
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={[styles.input, passwordError ? styles.inputError : null]}
+                                    placeholder="Create password (8+ characters)"
+                                    secureTextEntry
+                                    value={password}
+                                    onChangeText={(text) => {
+                                        setPassword(text);
+                                        checkPasswordStrength(text);
+                                    }}
+                                    placeholderTextColor="#999"
+                                    onBlur={() => validatePassword(password)}
+                                />
+                                {password.length > 0 && (
+                                    <View style={styles.passwordStrengthContainer}>
+                                        <View style={styles.passwordStrengthBar}>
+                                            <View 
+                                                style={[
+                                                    styles.passwordStrengthIndicator, 
+                                                    { 
+                                                        width: `${20 * passwordStrength.score}%`,
+                                                        backgroundColor: getPasswordStrengthColor() 
+                                                    }
+                                                ]} 
+                                            />
+                                        </View>
+                                        <Text style={[styles.passwordStrengthText, { color: getPasswordStrengthColor() }]}>
+                                            {getPasswordStrengthText()}
+                                        </Text>
+                                    </View>
+                                )}
+                                {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+                            </View>
+
+                            {/* Confirm Password Input */}
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={[styles.input, confirmPasswordError ? styles.inputError : null]}
+                                    placeholder="Confirm password"
+                                    secureTextEntry
+                                    value={confirmPassword}
+                                    onChangeText={setConfirmPassword}
+                                    placeholderTextColor="#999"
+                                    onBlur={() => validateConfirmPassword(password, confirmPassword)}
+                                />
+                                {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+                            </View>
+
+                            {/* Part 2: Profile Information */}
+                            <Text style={styles.sectionTitle}>Personal Information</Text>
+
+                            {/* Gender Input */}
+                            <View style={styles.inputContainer}>
+                                <Dropdown
+                                    style={[styles.dropdown, genderError ? styles.inputError : null]}
+                                    placeholder="Select Gender"
+                                    placeholderStyle={styles.placeholderStyle}
+                                    selectedTextStyle={styles.selectedTextStyle}
+                                    data={genderOptions}
+                                    maxHeight={200}
+                                    labelField="label"
+                                    valueField="value"
+                                    value={gender}
+                                    onChange={(item) => {
+                                        setGender(item.value);
+                                        validateGender(item.value);
+                                    }}
+                                />
+                                {genderError ? <Text style={styles.errorText}>{genderError}</Text> : null}
+                            </View>
+
+                            {/* Birth Date Input */}
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={[styles.input, birthDateError ? styles.inputError : null]}
+                                    placeholder="Date of Birth (DD.MM.YYYY)"
+                                    value={birthDate}
+                                    onChangeText={setBirthDate}
+                                    placeholderTextColor="#999"
+                                    keyboardType="number-pad"
+                                    maxLength={10}
+                                    onBlur={() => validateBirthDate(birthDate)}
+                                />
+                                {birthDateError ? <Text style={styles.errorText}>{birthDateError}</Text> : null}
+                            </View>
+
+                            {/* Height and Weight Inputs - Side by Side */}
+                            <View style={styles.doubleInputRow}>
+                                {/* Height Input */}
+                                <View style={[styles.inputContainer, styles.halfInput]}>
+                                    <TextInput
+                                        style={[styles.input, heightError ? styles.inputError : null]}
+                                        placeholder="Height (cm)"
+                                        value={height}
+                                        onChangeText={setHeight}
+                                        keyboardType="decimal-pad"
+                                        placeholderTextColor="#999"
+                                        maxLength={6}
+                                        onBlur={() => validateHeight(height)}
+                                    />
+                                    {heightError ? <Text style={styles.errorText}>{heightError}</Text> : null}
+                                </View>
+                                
+                                {/* Weight Input */}
+                                <View style={[styles.inputContainer, styles.halfInput]}>
+                                    <TextInput
+                                        style={[styles.input, weightError ? styles.inputError : null]}
+                                        placeholder="Weight (kg)"
+                                        value={weight}
+                                        onChangeText={setWeight}
+                                        keyboardType="decimal-pad"
+                                        placeholderTextColor="#999"
+                                        maxLength={6}
+                                        onBlur={() => validateWeight(weight)}
+                                    />
+                                    {weightError ? <Text style={styles.errorText}>{weightError}</Text> : null}
+                                </View>
+                            </View>
+
+                            {/* BMI Display */}
+                            {bmi && (
+                                <View style={styles.bmiContainer}>
+                                    <Text style={styles.bmiLabel}>
+                                        BMI: <Text style={styles.bmiValue}>{bmi}</Text> 
+                                        <Text style={styles.bmiCategory}> ({bmiCategory})</Text>
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Fitness Goal Input */}
+                            <View style={styles.inputContainer}>
+                                <Dropdown
+                                    style={[styles.dropdown, fitnessGoalError ? styles.inputError : null]}
+                                    placeholder="Select Fitness Goal"
+                                    placeholderStyle={styles.placeholderStyle}
+                                    selectedTextStyle={styles.selectedTextStyle}
+                                    data={fitnessGoals}
+                                    maxHeight={200}
+                                    labelField="label"
+                                    valueField="value"
+                                    value={fitnessGoal}
+                                    onChange={(item) => {
+                                        setFitnessGoal(item.value);
+                                        validateFitnessGoal(item.value);
+                                    }}
+                                />
+                                {fitnessGoalError ? <Text style={styles.errorText}>{fitnessGoalError}</Text> : null}
+                            </View>
+
+                            {/* Activity Level Input */}
+                            <View style={styles.inputContainer}>
+                                <Dropdown
+                                    style={[styles.dropdown, activityLevelError ? styles.inputError : null]}
+                                    placeholder="Select Activity Level"
+                                    placeholderStyle={styles.placeholderStyle}
+                                    selectedTextStyle={styles.selectedTextStyle}
+                                    data={activityLevels}
+                                    maxHeight={200}
+                                    labelField="label"
+                                    valueField="value"
+                                    value={activityLevel}
+                                    onChange={(item) => {
+                                        setActivityLevel(item.value);
+                                        validateActivityLevel(item.value);
+                                    }}
+                                />
+                                {activityLevelError ? <Text style={styles.errorText}>{activityLevelError}</Text> : null}
+                            </View>
+
+                            {/* Register Button */}
+                            <TouchableOpacity 
+                                style={styles.button} 
+                                onPress={handleRegister}
+                                disabled={isLoading}
+                            >
+                                {isLoading ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <Text style={styles.buttonText}>Create Account</Text>
+                                )}
+                            </TouchableOpacity>
+
+                            {/* Login Navigation */}
+                            <View style={styles.loginContainer}>
+                                <Text style={styles.loginPrompt}>Already have an account? </Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                                    <Text style={styles.loginText}>Login</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
                     </SafeAreaView>
                 </KeyboardAvoidingView>
             </LinearGradient>
@@ -533,9 +791,13 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingVertical: 30,
+        paddingHorizontal: 20,
     },
     title: { 
         fontSize: 30, 
@@ -547,13 +809,19 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 16,
         color: '#fff',
-        marginBottom: 30,
+        marginBottom: 25,
         textAlign: 'center',
         opacity: 0.8,
     },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginVertical: 15,
+    },
     inputContainer: {
-        width: '100%',
         marginBottom: 15,
+        width: '100%',
     },
     input: { 
         backgroundColor: '#fff', 
@@ -566,6 +834,22 @@ const styles = StyleSheet.create({
         borderColor: 'transparent',
         color: '#333',
     },
+    dropdown: {
+        backgroundColor: '#fff',
+        borderRadius: 30,
+        height: 55,
+        paddingHorizontal: 20,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    placeholderStyle: {
+        fontSize: 16,
+        color: '#999',
+    },
+    selectedTextStyle: {
+        fontSize: 16,
+        color: '#333',
+    },
     inputError: {
         borderColor: '#FF6B6B',
     },
@@ -574,6 +858,30 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginTop: 5,
         marginLeft: 10,
+    },
+    doubleInputRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+    },
+    halfInput: {
+        width: '48%',
+    },
+    bmiContainer: {
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        padding: 12,
+        borderRadius: 15,
+        marginBottom: 15,
+    },
+    bmiLabel: {
+        color: '#fff',
+        fontSize: 16,
+    },
+    bmiValue: {
+        fontWeight: 'bold',
+    },
+    bmiCategory: {
+        fontStyle: 'italic',
     },
     passwordStrengthContainer: {
         flexDirection: 'row',
@@ -595,29 +903,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    passwordRequirementsContainer: {
-        width: '100%',
-        marginBottom: 20,
-        paddingHorizontal: 10,
-    },
-    passwordRequirementsTitle: {
-        color: '#fff',
-        marginBottom: 8,
-        fontSize: 14,
-    },
-    passwordRequirement: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    passwordRequirementText: {
-        fontSize: 12,
-        color: 'rgba(255, 255, 255, 0.7)',
-    },
-    passwordRequirementMet: {
-        color: '#4CD964',
-        fontWeight: 'bold',
-    },
     button: { 
         height: 55, 
         borderRadius: 30,
@@ -630,22 +915,29 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 3,
         elevation: 3,
+        marginTop: 15,
     },
     buttonText: { 
         color: '#fff', 
         fontSize: 18, 
         fontWeight: 'bold' 
     },
-    loginContainer: {
+    dividerContainer: {
         flexDirection: 'row',
-        marginTop: 25,
+        alignItems: 'center',
+        marginBottom: 25,
+        width: '100%',
+        marginTop: 15,
     },
-    loginPrompt: {
+    divider: {
+        flex: 1,
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    },
+    dividerText: {
         color: '#fff',
-    },
-    loginText: { 
-        color: '#fff', 
-        fontWeight: 'bold',
+        marginHorizontal: 10,
+        fontSize: 14,
     },
     googleButton: {
         height: 55,
@@ -660,7 +952,6 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
         elevation: 3,
         flexDirection: 'row',
-        marginVertical: 15,
     },
     googleIconContainer: {
         backgroundColor: '#4285F4',
@@ -681,21 +972,17 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         color: '#333',
     },
-    dividerContainer: {
+    loginContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 15,
-        width: '100%',
+        marginTop: 20,
+        justifyContent: 'center',
     },
-    divider: {
-        flex: 1,
-        height: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    },
-    dividerText: {
+    loginPrompt: {
         color: '#fff',
-        marginHorizontal: 10,
-        fontSize: 14,
+    },
+    loginText: { 
+        color: '#fff', 
+        fontWeight: 'bold',
     },
 });
 
