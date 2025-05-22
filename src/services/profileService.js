@@ -1,5 +1,6 @@
 import { apiClient, handleApiError } from './apiConfig';
 import { saveUserToStorage } from './authService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Create a new user profile
 export const createProfile = async (profileData) => {
@@ -179,8 +180,84 @@ export const updateProfile = async (userId, profileData) => {
   }
 };
 
+// Get current user profile from API
+export const getCurrentUserProfile = async () => {
+  try {
+    const response = await apiClient.get('/api/users/profile');
+    
+    if (response.status === 200) {
+      // Store the user role in AsyncStorage for easy access
+      if (response.data.role) {
+        await AsyncStorage.setItem('userRole', response.data.role);
+      }
+      
+      return {
+        success: true,
+        profile: response.data
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to fetch user profile'
+    };
+  } catch (error) {
+    console.error('Get user profile error:', error.response?.data || error.message);
+    return handleApiError(error);
+  }
+};
+
+// Update current user profile
+export const updateUserProfile = async (profileData) => {
+  try {
+    const response = await apiClient.put('/api/users/profile', profileData);
+    
+    if (response.status === 200) {
+      return {
+        success: true,
+        message: 'Profile updated successfully',
+        profile: response.data
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to update profile'
+    };
+  } catch (error) {
+    console.error('Update user profile error:', error.response?.data || error.message);
+    return handleApiError(error);
+  }
+};
+
+// Check if the current user is an admin
+export const isUserAdmin = async () => {
+  try {
+    // First try to get the role from AsyncStorage for better performance
+    const role = await AsyncStorage.getItem('userRole');
+    
+    if (role) {
+      return role.toLowerCase() === 'admin';
+    }
+    
+    // If role is not in AsyncStorage, fetch it from the API
+    const profileResponse = await getCurrentUserProfile();
+    if (profileResponse.success && profileResponse.profile.role) {
+      return profileResponse.profile.role.toLowerCase() === 'admin';
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking if user is admin:', error);
+    return false;
+  }
+};
+
 export default {
   createProfile,
   getProfile,
-  updateProfile
+  updateProfile,
+  getCurrentUserProfile,
+  updateUserProfile,
+  isUserAdmin
 }; 

@@ -21,10 +21,10 @@ import authService from '../../services/authService';
 import profileService from '../../services/profileService';
 
 const LoginScreen = ({ navigation }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [usernameError, setUsernameError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
   React.useEffect(() => {
@@ -35,12 +35,17 @@ const LoginScreen = ({ navigation }) => {
     });
   }, []);
 
-  const validateUsername = (username) => {
-    if (!username.trim()) {
-      setUsernameError('Username is required');
+  const validateEmail = (email) => {
+    if (!email.trim()) {
+      setEmailError('Email is required');
       return false;
     }
-    setUsernameError('');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError('Invalid email format');
+      return false;
+    }
+    setEmailError('');
     return true;
   };
 
@@ -188,19 +193,19 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     // Validate inputs
-    const isUsernameValid = validateUsername(username);
+    const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
 
-    if (isUsernameValid && isPasswordValid) {
+    if (isEmailValid && isPasswordValid) {
       setIsLoading(true);
       dismissKeyboard();
 
       try {
-        console.log('Attempting login with:', { username: username.trim(), password: '***' });
+        console.log('Attempting login with:', { email: email.trim(), password: '***' });
 
         // Call login API endpoint
         const response = await authService.login({
-          username: username.trim(),
+          email: email.trim(),
           password: password
         });
 
@@ -231,7 +236,7 @@ const LoginScreen = ({ navigation }) => {
         
         // Show appropriate error message based on error type
         if (error.response?.status === 404) {
-          Alert.alert('Login Failed', 'Username not found. Please check your credentials.');
+          Alert.alert('Login Failed', 'Email not found. Please check your credentials.');
         } else if (error.response?.status === 401) {
           Alert.alert('Login Failed', 'Incorrect password. Please try again.');
         } else if (error.type === 'network') {
@@ -290,22 +295,22 @@ const LoginScreen = ({ navigation }) => {
             
             <Text style={styles.title}>Login</Text>
 
-            {/* Username Input */}
+            {/* Email Input */}
             <View style={styles.inputContainer}>
               <TextInput
-                style={[styles.input, usernameError ? styles.inputError : null]}
-                placeholder="Enter Username"
-                value={username}
+                style={[styles.input, emailError ? styles.inputError : null]}
+                placeholder="Enter Email"
+                value={email}
                 onChangeText={(text) => {
-                  setUsername(text);
-                  if (usernameError) validateUsername(text);
+                  setEmail(text);
+                  if (emailError) validateEmail(text);
                 }}
                 placeholderTextColor="#999"
                 autoCapitalize="none"
-                onBlur={() => validateUsername(username)}
+                onBlur={() => validateEmail(email)}
                 maxLength={100}
               />
-              {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
+              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
             </View>
 
             {/* Password Input */}

@@ -396,6 +396,143 @@ export const getRecentWorkouts = async (limit = 5) => {
   }
 };
 
+// Get all workout types
+export const getWorkoutTypes = async () => {
+  try {
+    const response = await apiClient.get('/api/workouts/types');
+    
+    if (response.status === 200) {
+      return {
+        success: true,
+        data: response.data
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to fetch workout types'
+    };
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// Create a new workout type (admin only)
+export const createWorkoutType = async (workoutTypeData) => {
+  try {
+    const response = await apiClient.post('/api/workouts/types', {
+      name: workoutTypeData.name,
+      description: workoutTypeData.description
+    });
+    
+    if (response.status === 201) {
+      return {
+        success: true,
+        data: response.data,
+        message: 'Workout type created successfully'
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to create workout type'
+    };
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// Get exercises for a specific workout type
+export const getWorkoutTypeExercises = async (workoutTypeId) => {
+  try {
+    const response = await apiClient.get(`/api/workouts/types/${workoutTypeId}/exercises`);
+    
+    if (response.status === 200) {
+      return {
+        success: true,
+        data: response.data
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to fetch exercises'
+    };
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// Add an exercise to a workout type (admin only)
+export const addExerciseToWorkoutType = async (workoutTypeId, exerciseData) => {
+  try {
+    const response = await apiClient.post(`/api/workouts/types/${workoutTypeId}/exercises`, {
+      name: exerciseData.name,
+      type: exerciseData.type,
+      targetedBodyParts: exerciseData.targetedBodyParts,
+      description: exerciseData.description,
+      difficulty_level: exerciseData.difficulty_level
+    });
+    
+    if (response.status === 201) {
+      return {
+        success: true,
+        data: response.data,
+        message: 'Exercise added to workout type successfully'
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to add exercise to workout type'
+    };
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// Get all exercises
+export const getAllExercises = async () => {
+  try {
+    const response = await apiClient.get('/api/exercises/');
+    
+    if (response.status === 200) {
+      return {
+        success: true,
+        data: response.data
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to fetch exercises'
+    };
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+// Get exercise details
+export const getExerciseDetails = async (exerciseId) => {
+  try {
+    const response = await apiClient.get(`/api/exercises/${exerciseId}`);
+    
+    if (response.status === 200) {
+      return {
+        success: true,
+        data: response.data
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Failed to fetch exercise details'
+    };
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
 export default {
   getWorkoutLibrary,
   getExerciseVideos,
@@ -404,5 +541,11 @@ export default {
   getWorkoutStatistics,
   getWeeklyProgress,
   getMonthlyProgress,
-  getRecentWorkouts
+  getRecentWorkouts,
+  getWorkoutTypes,
+  createWorkoutType,
+  getWorkoutTypeExercises,
+  addExerciseToWorkoutType,
+  getAllExercises,
+  getExerciseDetails
 }; 

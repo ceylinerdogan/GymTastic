@@ -31,13 +31,17 @@
     "react-native-gesture-handler": "^2.22.0",
     "react-native-get-random-values": "^1.11.0",
     "react-native-image-picker": "^8.2.0",
+    "react-native-image-resizer": "^1.4.5",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-reanimated": "^3.16.7",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-screens": "^4.3.0",
+    "react-native-svg": "^12.4.0",
     "react-native-vector-icons": "^10.2.0",
     "react-native-video": "^6.8.2",
-    "react-native-vision-camera": "^4.6.4"
+    "react-native-vision-camera": "^4.6.4",
+    "react-native-worklets-core": "^1.5.0",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

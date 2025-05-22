@@ -15,7 +15,8 @@ const ProfileScreen = ({ navigation, route }) => {
     height: '',
     goal: '',
     activityLevel: '',
-    profileImageUri: null
+    profileImageUri: null,
+    role: ''
   });
   
   // Extract data from profile or route params
@@ -28,7 +29,8 @@ const ProfileScreen = ({ navigation, route }) => {
     height,
     goal,
     activityLevel,
-    profileImageUri
+    profileImageUri,
+    role
   } = profileData;
 
   // Fetch profile data when screen loads or comes into focus
@@ -36,19 +38,8 @@ const ProfileScreen = ({ navigation, route }) => {
     const fetchProfileData = async () => {
       setIsLoading(true);
       try {
-        // Get user ID from storage
-        const userData = await AsyncStorage.getItem('user_data');
-        if (!userData) {
-          throw new Error('No user data found');
-        }
-        
-        const user = JSON.parse(userData);
-        if (!user.userID) {
-          throw new Error('User ID not found in stored data');
-        }
-        
-        console.log(`Fetching profile for user ID: ${user.userID}`);
-        const response = await profileService.getProfile(user.userID);
+        // Get profile from new API endpoint
+        const response = await profileService.getCurrentUserProfile();
         console.log('Profile response in ProfileScreen:', response);
         
         if (response.success && response.profile) {
@@ -68,8 +59,6 @@ const ProfileScreen = ({ navigation, route }) => {
           // Handle profile picture
           let profilePic = null;
           if (profile.profilepic) {
-            // If the profilepic is already a data URL, use it as is
-            // Otherwise, assume it's a base64 string and add the prefix
             profilePic = profile.profilepic;
             console.log('Profile picture found, length:', profile.profilepic.length);
           }
@@ -83,7 +72,8 @@ const ProfileScreen = ({ navigation, route }) => {
             height: profile.height ? String(profile.height) : '0',
             goal: profile.fitness_goal || '',
             activityLevel: profile.activity_level || '',
-            profileImageUri: profilePic
+            profileImageUri: profilePic,
+            role: profile.role || 'user'
           });
           
           console.log('Profile data set:', {
@@ -92,6 +82,7 @@ const ProfileScreen = ({ navigation, route }) => {
             gender: profile.gender || '',
             weight: profile.weight,
             height: profile.height,
+            role: profile.role || 'user',
             hasProfileImage: !!profilePic
           });
         } else if (route.params) {
@@ -106,7 +97,8 @@ const ProfileScreen = ({ navigation, route }) => {
             height: route.params.height ? String(route.params.height) : '0',
             goal: route.params.goal || '',
             activityLevel: route.params.activityLevel || '',
-            profileImageUri: route.params.profileImageUri || null
+            profileImageUri: route.params.profileImageUri || null,
+            role: route.params.role || 'user'
           });
         }
       } catch (error) {
@@ -123,7 +115,8 @@ const ProfileScreen = ({ navigation, route }) => {
             height: route.params.height ? String(route.params.height) : '0',
             goal: route.params.goal || '',
             activityLevel: route.params.activityLevel || '',
-            profileImageUri: route.params.profileImageUri || null
+            profileImageUri: route.params.profileImageUri || null,
+            role: route.params.role || 'user'
           });
         }
       } finally {
@@ -385,6 +378,27 @@ const ProfileScreen = ({ navigation, route }) => {
             </View>
           </View>
           
+          {/* Admin Features Section - Only visible to admin users */}
+          {role === 'admin' && (
+            <View style={styles.adminSection}>
+              <Text style={styles.adminSectionTitle}>Admin Features</Text>
+              
+              <TouchableOpacity 
+                style={styles.adminButton}
+                onPress={() => navigation.navigate('ManageWorkouts')}
+              >
+                <Text style={styles.adminButtonText}>Manage Workouts</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.adminButton}
+                onPress={() => navigation.navigate('ManageUsers')}
+              >
+                <Text style={styles.adminButtonText}>Manage Users</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
           <View style={styles.buttonsContainer}>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
               <Text style={styles.logoutButtonText}>Logout</Text>
@@ -583,6 +597,39 @@ const styles = StyleSheet.create({
   bmiInfoText: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.7)',
+  },
+  adminSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20,
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  adminSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#A95CF1',
+  },
+  adminButton: {
+    backgroundColor: '#A95CF1',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  adminButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

@@ -2,8 +2,17 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView } from 'react-native';
 import Video from 'react-native-video'; 
 
+// Mapping of workout names to video sources
+const videoSources = {
+  squat: require('../../../assets/videos/squat.mp4'),
+  lunge: require('../../../assets/videos/lunge.mp4'),
+  plank: require('../../../assets/videos/plank.mp4'),
+};
+
 const WorkoutVideo = ({ route, navigation }) => {
   const { workout } = route.params;
+  const videoKey = workout.name.toLowerCase();
+  const videoSource = videoSources[videoKey];
   
   return (
     <SafeAreaView style={styles.container}>
@@ -12,10 +21,12 @@ const WorkoutVideo = ({ route, navigation }) => {
 
       {/* Workout Video/Image */}
       <View style={styles.videoContainer}>
-        <Image 
-          source={require('../../../assets/images/squat.png')}
+        <Video
+          source={videoSource}
           style={styles.video}
           resizeMode="cover"
+          repeat
+          controls
         />
       </View>
 
