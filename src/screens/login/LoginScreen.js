@@ -35,6 +35,14 @@ const LoginScreen = ({ navigation }) => {
     });
   }, []);
 
+  const handleUsernameBlur = () => {
+    validateUsername(username);
+  };
+
+  const handlePasswordBlur = () => {
+    validatePassword(password);
+  };
+
   const validateUsername = (username) => {
     if (!username.trim()) {
       setUsernameError('Username is required');
@@ -296,10 +304,15 @@ const LoginScreen = ({ navigation }) => {
                 style={[styles.input, usernameError ? styles.inputError : null]}
                 placeholder="Username"
                 value={username}
-                onChangeText={setUsername}
+                onChangeText={(text) => {
+                  setUsername(text);
+                  if (usernameError && text.trim()) {
+                    setUsernameError('');
+                  }
+                }}
                 placeholderTextColor="#999"
                 autoCapitalize="none"
-                onBlur={() => validateUsername(username)}
+                onBlur={handleUsernameBlur}
               />
               {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
             </View>
@@ -311,9 +324,14 @@ const LoginScreen = ({ navigation }) => {
                 placeholder="Password"
                 secureTextEntry
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (passwordError && text.trim()) {
+                    setPasswordError('');
+                  }
+                }}
                 placeholderTextColor="#999"
-                onBlur={() => validatePassword(password)}
+                onBlur={handlePasswordBlur}
               />
               {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
             </View>
@@ -330,6 +348,7 @@ const LoginScreen = ({ navigation }) => {
               style={styles.button} 
               onPress={handleLogin}
               disabled={isLoading}
+              testID="login-button"
             >
               {isLoading ? (
                 <ActivityIndicator color="#fff" size="small" />
@@ -350,6 +369,7 @@ const LoginScreen = ({ navigation }) => {
               style={styles.googleButton} 
               onPress={handleGoogleSignIn}
               disabled={isLoading}
+              testID="google-signin-button"
             >
               <View style={styles.googleIconContainer}>
                 <Text style={styles.googleIconText}>G</Text>

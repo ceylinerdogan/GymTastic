@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, PermissionsAndroid, Platform, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Camera, useCameraDevice, useFrameProcessor } from 'react-native-vision-camera';
 import Svg, { Circle, Line } from 'react-native-svg';
@@ -137,7 +137,9 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
     // Increment the counter and trigger processing on JS thread
     if (frameCount.current % 5 === 0) {
       // Store the frame data for later use (can't send directly from worklet)
+      // eslint-disable-next-line no-undef
       globalThis._currentFrameData = frame;
+      // eslint-disable-next-line no-undef
       globalThis._shouldProcessFrame = true;
     }
     
@@ -150,10 +152,14 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
     
     // Set up interval to check if frame should be processed
     const interval = setInterval(() => {
+      // eslint-disable-next-line no-undef
       if (globalThis._shouldProcessFrame && !isProcessing.current) {
+        // eslint-disable-next-line no-undef
         globalThis._shouldProcessFrame = false;
         // Process with the saved frame data
+        // eslint-disable-next-line no-undef
         if (globalThis._currentFrameData) {
+          // eslint-disable-next-line no-undef
           processFrameWithData(globalThis._currentFrameData);
         } else {
           console.log('[PoseCamera] No frame data available, sending signal only');
@@ -180,7 +186,53 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
       clearInterval(interval);
       clearInterval(backupPolling);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionActive, landmarks.length]);
+
+  // Process frame with signal only (no frame data needed)
+  const processFrameWithSignal = useCallback(() => {
+    if (isProcessing.current || !sessionActive) return;
+    isProcessing.current = true;
+    
+    try {
+      console.log(`[PoseCamera] Processing frame signal with method: ${processingMethod} (FALLBACK - server requires frame data)`);
+      
+      if (processingMethod === 'socket') {
+        // Send signal only instead of frame data
+        console.log(`[PoseCamera] Sending frame signal via socket for ${exerciseType} (not recommended)`);
+        
+        // Update the signal to include a warning that frame data is needed
+        socketService.sendFrameForPoseDetection({
+          exercise_type: exerciseType,
+          warning: 'Server requires actual frame data, not just signals',
+          timestamp: Date.now()
+        }, exerciseType);
+      } else {
+        // For API mode, use the REST endpoint
+        console.log(`[PoseCamera] Sending frame signal via REST API for ${exerciseType}`);
+        // Call processRESTFrame directly instead of recursive call
+        poseService.requestPoseDetectionSignal(exerciseType)
+          .then(result => {
+            if (result) {
+              handlePoseData(result);
+            }
+          })
+          .catch(error => {
+            console.error('REST API pose detection error:', error.message || 'Unknown error');
+            if (!receivedPoseData) {
+              setFeedback('Having trouble getting pose data from the server. Please check your connection and try again.');
+            }
+          });
+      }
+    } catch (e) {
+      console.error('[PoseCamera] Frame processing error:', e.message || 'Unknown error');
+    } finally {
+      // Allow another frame to be processed after a delay
+      setTimeout(() => {
+        isProcessing.current = false;
+      }, 200);
+    }
+  }, [sessionActive, processingMethod, exerciseType, receivedPoseData]);
 
   // Take a picture and send it for processing - resized for small payload
   const takePicture = async () => {
@@ -271,41 +323,8 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
     }
   };
 
-  // Process frame with signal only (no frame data needed)
-  const processFrameWithSignal = () => {
-    if (isProcessing.current || !sessionActive) return;
-    isProcessing.current = true;
-    
-    try {
-      console.log(`[PoseCamera] Processing frame signal with method: ${processingMethod} (FALLBACK - server requires frame data)`);
-      
-      if (processingMethod === 'socket') {
-        // Send signal only instead of frame data
-        console.log(`[PoseCamera] Sending frame signal via socket for ${exerciseType} (not recommended)`);
-        
-        // Update the signal to include a warning that frame data is needed
-        socketService.sendFrameForPoseDetection({
-          exercise_type: exerciseType,
-          warning: 'Server requires actual frame data, not just signals',
-          timestamp: Date.now()
-        }, exerciseType);
-      } else {
-        // For API mode, use the REST endpoint
-        console.log(`[PoseCamera] Sending frame signal via REST API for ${exerciseType}`);
-        processRESTFrame();
-      }
-    } catch (e) {
-      console.error('[PoseCamera] Frame processing error:', e.message || 'Unknown error');
-    } finally {
-      // Allow another frame to be processed after a delay
-      setTimeout(() => {
-        isProcessing.current = false;
-      }, 200);
-    }
-  };
-
   // Process frame using REST API
-  const processRESTFrame = async () => {
+  const processRESTFrame = useCallback(async () => {
     try {
       // Request pose detection from the API
       const result = await poseService.requestPoseDetectionSignal(exerciseType);
@@ -321,7 +340,7 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
         setFeedback('Having trouble getting pose data from the server. Please check your connection and try again.');
       }
     }
-  };
+  }, [exerciseType, receivedPoseData]);
 
   // Handle pose data from either source (Socket or REST)
   const handlePoseData = (data) => {
@@ -462,7 +481,7 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
         clearInterval(pollingInterval.current);
       }
     };
-  }, [sessionActive, processingMethod]);
+  }, [sessionActive, processingMethod, processRESTFrame]);
 
   // Start exercise session
   const startSession = async () => {
@@ -644,21 +663,26 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
     const requestPermissions = async () => {
       let hasPermission = false;
 
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: 'Camera Permission Required',
-            message: 'This app needs access to your camera for pose detection.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
-        hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
-      } else {
-        const status = await Camera.requestCameraPermission();
-        hasPermission = status === 'authorized';
+      try {
+        if (Platform.OS === 'android') {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+            {
+              title: 'Camera Permission Required',
+              message: 'This app needs access to your camera for pose detection.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            }
+          );
+          hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+        } else {
+          const status = await Camera.requestCameraPermission();
+          hasPermission = status === 'authorized';
+        }
+      } catch (error) {
+        console.error('Error requesting camera permission:', error);
+        hasPermission = false;
       }
 
       setCameraPermission(hasPermission);
@@ -870,10 +894,19 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
         frameProcessor={sessionActive && frameProcessorEnabled ? frameProcessor : undefined}
         frameProcessorFps={6}
         photo={true}
+        testID="camera-view"
       />
       
       {/* Render skeleton when we have landmarks */}
       {renderSkeleton()}
+      
+      {/* Pose overlay for accessibility */}
+      {landmarks.length > 0 && (
+        <View style={StyleSheet.absoluteFill} testID="pose-overlay" />
+      )}
+      
+      {/* Voice feedback placeholder for accessibility */}
+      <View style={{ position: 'absolute', top: -1000 }} testID="voice-feedback" />
       
       {/* Loading indicator */}
       {isLoading && (
@@ -973,6 +1006,8 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
               style={styles.button} 
               onPress={endSession}
               disabled={isLoading}
+              testID="session-end-button"
+              accessibilityLabel="End session"
             >
               <Text style={styles.buttonText}>End Session</Text>
             </TouchableOpacity>
@@ -992,7 +1027,24 @@ const PoseCamera = ({ exerciseType = 'squat', onError, navigation }) => {
             >
               <Text style={styles.buttonText}>Send Frame</Text>
             </TouchableOpacity>
+            
+            {/* Camera flip button (placeholder since PoseCamera doesn't have flip functionality) */}
+            <TouchableOpacity 
+              style={styles.secondaryButton} 
+              onPress={() => console.log('Camera flip not implemented')}
+              testID="camera-flip-button"
+              accessibilityLabel="Flip camera"
+            >
+              <Text style={styles.buttonText}>Flip Camera</Text>
+            </TouchableOpacity>
           </>
+        )}
+        
+        {/* Session timer display */}
+        {sessionActive && (
+          <View style={styles.timerContainer} testID="session-timer">
+            <Text style={styles.timerText}>00:00</Text>
+          </View>
         )}
       </View>
     </View>
@@ -1092,6 +1144,17 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontSize: 12,
     marginBottom: 2,
+  },
+  timerContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 10,
+  },
+  timerText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

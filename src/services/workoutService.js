@@ -27,13 +27,13 @@ export const getWorkoutLibrary = async () => {
     if (response.status === 200) {
       return {
         success: true,
-        exercises: response.data.exercises || []
+        exercises: response.data?.exercises || []
       };
     }
     
     return {
       success: false,
-      message: response.data.error || 'Failed to fetch workout library',
+      message: response.data?.error || 'Failed to fetch workout library',
       exercises: []
     };
   } catch (error) {
@@ -54,13 +54,13 @@ export const getExerciseVideos = async () => {
     if (response.status === 200) {
       return {
         success: true,
-        videos: response.data.exerciseVideos || []
+        videos: response.data?.exerciseVideos || []
       };
     }
     
     return {
       success: false,
-      message: response.data.error || 'Failed to fetch exercise videos',
+      message: response.data?.error || 'Failed to fetch exercise videos',
       videos: []
     };
   } catch (error) {
@@ -100,6 +100,14 @@ export const startWorkout = async (exerciseId, duration) => {
     };
   } catch (error) {
     console.error('Error starting workout:', error.response?.data || error.message);
+    
+    // Handle missing user data specifically
+    if (error.message && (error.message.includes('No user data found') || error.message.includes('User ID not found'))) {
+      return {
+        success: false,
+        message: 'User not logged in. Please log in to start a workout.'
+      };
+    }
     
     if (error.response && error.response.status === 403) {
       return {
